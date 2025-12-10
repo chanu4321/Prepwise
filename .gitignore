@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.env
+venv/
+ENV/
+env/
+PYTHON/
+
+# Fast API / Backend specific
+backend/papers/
+backend/uploads/
+backend/logs/
+__pycache__/
+*.py[cod]
+services/test_ocr.py
+
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+.next/
+out/
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# OS Generated
+.DS_Store
+Thumbs.db
+
+# Project Specific
+reference_ocr/
+qdrant_storage/

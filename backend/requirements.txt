@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+python-multipart
+requests
+# OCR & PDF
+pytesseract
+pdf2image
+Pillow
+# Database
+psycopg2-binary
+qdrant-client
+# Utils
+python-dotenv
