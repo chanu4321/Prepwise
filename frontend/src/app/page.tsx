@@ -4,7 +4,7 @@ import { Search, FileText, Brain, Zap } from "lucide-react";
 export default function Home() {
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] flex-col">
-      <section className="space-y-6 pb-8 pt-6 md:pb-12 md:pt-10 lg:py-32">
+      <section className="flex-1 flex items-center justify-center space-y-6 pb-8 pt-6 md:pb-12 md:pt-10">
         <div className="container flex max-w-[64rem] flex-col items-center gap-4 text-center">
           <Link
             href="/upload"
@@ -35,7 +35,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="container space-y-6 bg-slate-50 py-8 dark:bg-transparent md:py-12 lg:py-24">
+      <section className="container mx-auto space-y-6 bg-slate-50 py-8 dark:bg-transparent md:py-12 lg:py-24">
         <div className="mx-auto flex max-w-[58rem] flex-col items-center space-y-4 text-center">
           <h2 className="font-heading text-3xl leading-[1.1] sm:text-3xl md:text-6xl">
             Features

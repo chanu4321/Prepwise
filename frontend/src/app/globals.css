@@ -5,8 +5,10 @@
 @layer base {
   :root {
     /* Premium Light Mode */
-    --background: 210 40% 98%; /* Soft cool white */
-    --foreground: 222 47% 11%; /* Deep navy/black */
+    --background: 210 40% 98%;
+    /* Soft cool white */
+    --foreground: 222 47% 11%;
+    /* Deep navy/black */
 
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
@@ -14,7 +16,8 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    --primary: 221 83% 53%; /* Vivid Blue */
+    --primary: 221 83% 53%;
+    /* Vivid Blue */
     --primary-foreground: 210 40% 98%;
 
     --secondary: 210 40% 96.1%;
@@ -72,6 +75,7 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground antialiased;
   }

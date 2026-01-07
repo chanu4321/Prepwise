@@ -46,7 +46,7 @@ export default function PapersPage() {
                 </p>
             </div>
 
-            <div className="grid gap-8 md:grid-cols-4 lg:grid-cols-5 relative">
+            <div className="grid gap-4 md:gap-8 md:grid-cols-4 lg:grid-cols-5 relative">
                 {/* Sidebar Filters */}
                 <div className="space-y-6 md:col-span-1">
                     <div className="rounded-xl border bg-card text-card-foreground shadow-sm p-5 sticky top-20">
