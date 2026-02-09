@@ -58,13 +58,17 @@ class VectorService:
             return False
 
         try:
+            # Add full text to metadata for retrieval
+            payload = metadata.copy()
+            payload["full_text"] = text
+            
             self.client.upsert(
                 collection_name=COLLECTION_NAME,
                 points=[
                     models.PointStruct(
                         id=paper_id,
                         vector=vector,
-                        payload=metadata
+                        payload=payload
                     )
                 ]
             )
@@ -73,19 +77,20 @@ class VectorService:
             logger.error(f"Qdrant Upsert Error: {e}")
             return False
 
-    def search_similar(self, query: str, limit: int = 5):
+    def search_similar(self, query: str, limit: int = 5, with_payload: bool = True):
         """Searches for similar papers using vector similarity."""
         vector = self.get_embedding(query)
         if not vector:
             return []
 
         try:
-            results = self.client.search(
+            results = self.client.query_points(
                 collection_name=COLLECTION_NAME,
-                query_vector=vector,
-                limit=limit
+                query=vector,
+                limit=limit,
+                with_payload=with_payload
             )
-            return results
+            return results.points
         except Exception as e:
             logger.error(f"Qdrant Search Error: {e}")
             return []

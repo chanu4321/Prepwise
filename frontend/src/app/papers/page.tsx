@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { FileText, Calendar, Clock, BarChart, Filter, Loader2 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { FileText, Calendar, Clock, BarChart, Filter, Loader2, Search } from "lucide-react";
 
 interface Paper {
     id: number;
@@ -13,37 +14,122 @@ interface Paper {
     year: string;
     time: string;
     marks: string;
+    relevance?: number;
 }
 
-export default function PapersPage() {
+function PapersContent() {
     const [papers, setPapers] = useState<Paper[]>([]);
+    const [allPapers, setAllPapers] = useState<Paper[]>([]); // Store unfiltered results
     const [isLoading, setIsLoading] = useState(true);
+    const searchParams = useSearchParams();
+    const searchQuery = searchParams.get("search");
+
+    // Filter states
+    const [subjectCodeFilter, setSubjectCodeFilter] = useState("");
+    const [subjectNameFilter, setSubjectNameFilter] = useState("");
+    const [semesterFilter, setSemesterFilter] = useState("");
+    const [yearFilter, setYearFilter] = useState("");
 
     useEffect(() => {
         fetchPapers();
-    }, []);
+    }, [searchQuery]);
 
     const fetchPapers = async () => {
+        setIsLoading(true);
         try {
-            const res = await fetch("http://localhost:8000/api/v1/documents");
+            let url = "http://localhost:8000/api/v1/documents";
+            let options: RequestInit = { method: "GET" };
+
+            if (searchQuery) {
+                url = "http://localhost:8000/api/v1/search/semantic";
+                options = {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ query: searchQuery, limit: 10 }),
+                };
+            }
+
+            const res = await fetch(url, options);
+
             if (!res.ok) throw new Error("Failed to fetch papers");
             const data = await res.json();
+            setAllPapers(data);
             setPapers(data);
         } catch (err) {
             console.error(err);
-            setPapers([]); // Show empty state instead of error
+            setAllPapers([]);
+            setPapers([]);
         } finally {
             setIsLoading(false);
         }
     };
 
+    // Client-side filtering
+    useEffect(() => {
+        let filtered = allPapers;
+
+        if (subjectCodeFilter) {
+            filtered = filtered.filter(p =>
+                p.subjectCode?.toLowerCase().includes(subjectCodeFilter.toLowerCase())
+            );
+        }
+
+        if (subjectNameFilter) {
+            filtered = filtered.filter(p =>
+                p.subjectName?.toLowerCase().includes(subjectNameFilter.toLowerCase())
+            );
+        }
+
+        if (semesterFilter) {
+            filtered = filtered.filter(p =>
+                p.semester?.includes(semesterFilter)
+            );
+        }
+
+        if (yearFilter) {
+            filtered = filtered.filter(p =>
+                p.year?.includes(yearFilter)
+            );
+        }
+
+        setPapers(filtered);
+    }, [subjectCodeFilter, subjectNameFilter, semesterFilter, yearFilter, allPapers]);
+
     return (
         <div className="container mx-auto px-4 py-8 md:px-6">
             <div className="flex flex-col gap-4 pb-8 border-b mb-8">
-                <h1 className="text-3xl font-bold tracking-tight text-primary">Browse Papers</h1>
-                <p className="text-muted-foreground text-lg">
-                    Explore our collection of university question papers with AI-powered insights.
-                </p>
+                <div className="flex items-center justify-between">
+                    <h1 className="text-3xl font-bold tracking-tight text-primary">
+                        {searchQuery ? `Search Results` : "Browse Papers"}
+                    </h1>
+                    {searchQuery && (
+                        <button
+                            onClick={() => window.location.href = '/papers'}
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
+                        >
+                            <span>Clear Search</span>
+                            <span className="text-xs">✕</span>
+                        </button>
+                    )}
+                </div>
+                {searchQuery && (
+                    <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium">
+                            <Search className="h-3.5 w-3.5" />
+                            Semantic Search: "{searchQuery}"
+                        </span>
+                        <span className="text-muted-foreground text-sm">
+                            Found {papers.length} relevant papers using AI vector similarity
+                        </span>
+                    </div>
+                )}
+                {!searchQuery && (
+                    <p className="text-muted-foreground text-lg">
+                        Explore our collection of university question papers with AI-powered insights.
+                    </p>
+                )}
             </div>
 
             <div className="grid gap-4 md:gap-8 md:grid-cols-4 lg:grid-cols-5 relative">
@@ -58,17 +144,17 @@ export default function PapersPage() {
                         <div className="space-y-5">
                             <div className="space-y-2">
                                 <label className="text-sm font-medium leading-none text-foreground/80">Subject Code</label>
-                                <input className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" placeholder="e.g. CS101" />
+                                <input value={subjectCodeFilter} onChange={(e) => setSubjectCodeFilter(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" placeholder="e.g. CSE432" />
                             </div>
 
                             <div className="space-y-2">
                                 <label className="text-sm font-medium leading-none text-foreground/80">Subject Name</label>
-                                <input className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" placeholder="e.g. Operating Systems" />
+                                <input value={subjectNameFilter} onChange={(e) => setSubjectNameFilter(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" placeholder="e.g. Software Project" />
                             </div>
 
                             <div className="space-y-2">
                                 <label className="text-sm font-medium leading-none text-foreground/80">Semester</label>
-                                <select className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50">
+                                <select value={semesterFilter} onChange={(e) => setSemesterFilter(e.target.value)} className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50">
                                     <option value="">Any Semester</option>
                                     <option value="1">1st Sem</option>
                                     <option value="2">2nd Sem</option>
@@ -100,7 +186,9 @@ export default function PapersPage() {
 
                     {!isLoading && papers.length === 0 && (
                         <div className="text-center py-20 text-muted-foreground">
-                            No papers found. Upload some to get started!
+                            {searchQuery
+                                ? "No matching papers found. Try a different query."
+                                : "No papers found. Upload some to get started!"}
                         </div>
                     )}
 
@@ -160,5 +248,17 @@ export default function PapersPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function PapersPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex justify-center py-20">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        }>
+            <PapersContent />
+        </Suspense>
     );
 }

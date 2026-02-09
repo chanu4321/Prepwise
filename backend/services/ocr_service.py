@@ -3,8 +3,9 @@ import json
 import logging
 import requests
 import pytesseract
+import numpy as np
 from pdf2image import convert_from_path
-from PIL import Image
+from PIL import Image, ImageEnhance
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -38,7 +39,7 @@ class DocumentProcessor:
             f"Analyze the following text from a question paper headers:\n"
             f"{extracted_text[:2000]}\n\n"
             "Extract the following metadata in strictly valid JSON format:\n"
-            "- Subject Code\n"
+            "- Subject Code (Look for patterns like 'KCS401', 'RAS301', 'BCS301' etc.)\n"
             "- Subject Name\n"
             "- Semester (e.g., '3rd Sem')\n"
             "- Month/Year (Look for 'Examination : Month, Year' or similar. e.g., 'June, 2023')\n"
@@ -48,7 +49,7 @@ class DocumentProcessor:
         )
         
         data = {
-            "model": "llama3.2:latest", 
+            "model": "qwen2.5:3b", 
             "prompt": prompt,
             "format": "json",
             "stream": False
@@ -107,3 +108,36 @@ class DocumentProcessor:
         except Exception as e:
             logger.error(f"Error processing PDF {file_path}: {e}")
             raise e
+
+    def extract_full_text(self, pdf_path: str) -> str:
+        """Extracts full text from all pages of a PDF."""
+        images = convert_from_path(pdf_path, dpi=300)
+        full_text = ""
+        
+        for idx, image in enumerate(images):
+            try:
+                # Preprocess image for better OCR
+                # Convert to grayscale
+                image = image.convert('L')
+                
+                # Enhance contrast
+                enhancer = ImageEnhance.Contrast(image)
+                image = enhancer.enhance(2.0)
+                
+                # Apply threshold to make text clearer
+                img_array = np.array(image)
+                threshold = 150
+                img_array = np.where(img_array > threshold, 255, 0).astype(np.uint8)
+                image = Image.fromarray(img_array)
+                
+                # Perform OCR with better config
+                page_text = pytesseract.image_to_string(
+                    image, 
+                    config='--psm 6 --oem 3'  # PSM 6: Assume uniform block of text, OEM 3: Default
+                )
+                full_text += f"\n--- Page {idx + 1} ---\n{page_text}"
+            except Exception as e:
+                logger.error(f"OCR failed for page {idx + 1}: {e}")
+                full_text += f"\n--- Page {idx + 1} ---\n[OCR Error]\n"
+        
+        return full_text.strip()

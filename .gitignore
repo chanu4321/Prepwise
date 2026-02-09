@@ -33,7 +33,8 @@ backend/uploads/
 backend/logs/
 __pycache__/
 *.py[cod]
-services/test_ocr.py
+backend/test_ocr.py
+backend/sync_db.py
 
 # Node.js
 node_modules/
@@ -53,3 +54,4 @@ Thumbs.db
 # Project Specific
 reference_ocr/
 qdrant_storage/
+dev-scripts/

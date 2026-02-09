@@ -94,6 +94,37 @@ async def ingest_document(file: UploadFile = File(...)):
             conn.commit()
             cur.close()
             conn.close()
+
+            # 4. Extract full text from ALL pages for RAG
+            print(f"Extracting full text from all pages...")
+            try:
+                full_text = processor.extract_full_text(file_path)
+                print(f"Extracted {len(full_text)} characters from PDF")
+            except Exception as e:
+                print(f"Full text extraction failed: {e}")
+                full_text = result.get("text", "")  # Fallback to header text
+
+            # 5. Generate & Store Vector Embedding (Qdrant)
+            try:
+                from backend.services.vector_service import VectorService
+                vector_service = VectorService()
+                success = vector_service.upsert_paper(
+                    paper_id=paper_id,
+                    text=full_text,  # Use full text instead of just header
+                    metadata={
+                        "subject_code": metadata.get("subjectCode") or metadata.get("Subject Code"),
+                        "subject_name": metadata.get("subjectName") or metadata.get("Subject Name"),
+                        "year": metadata.get("monthYear") or metadata.get("Month/Year"),
+                        "filename": filename
+                    }
+                )
+                if success:
+                    print(f"Vector embedding stored for paper {paper_id}")
+                else:
+                    print(f"Failed to store vector embedding for paper {paper_id}")
+            except Exception as e:
+                print(f"Vector Service Error: {e}")
+
         except Exception as e:
             print(f"Database Insert Error: {e}")
         
@@ -165,3 +196,114 @@ async def download_paper(paper_id: int):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/search/semantic")
+async def semantic_search(request: dict):
+    """
+    Search for papers semantically using Qdrant and NeonDB.
+    """
+    query = request.get("query", "")
+    limit = request.get("limit", 5)
+    try:
+        from backend.services.vector_service import VectorService
+        from backend.database import get_db_connection
+        
+        # 1. Get similar paper IDs from Qdrant
+        vector_service = VectorService()
+        results = vector_service.search_similar(query, limit)
+        
+        if not results:
+            return []
+            
+        paper_ids = [point.id for point in results]
+        
+        # 2. Fetch full details from NeonDB
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Safe SQL query for multiple IDs
+        if not paper_ids:
+            return []
+            
+        query_placeholder = ','.join(['%s'] * len(paper_ids))
+        cur.execute(
+            f"SELECT id, filename, subject_code, subject_name, semester, year, time, marks FROM papers WHERE id IN ({query_placeholder})",
+            tuple(paper_ids)
+        )
+        rows = cur.fetchall()
+        
+        # 3. Map results back to order of relevance (Qdrant order)
+        db_papers = {row[0]: {
+            "id": row[0],
+            "filename": row[1],
+            "subjectCode": row[2],
+            "subjectName": row[3],
+            "semester": row[4],
+            "year": row[5],
+            "time": row[6],
+            "marks": row[7],
+            "relevance": next((r.score for r in results if r.id == row[0]), 0)
+        } for row in rows}
+        
+        # Return in order of Qdrant results
+        ordered_response = [db_papers[pid] for pid in paper_ids if pid in db_papers]
+        
+        cur.close()
+        conn.close()
+        
+        return ordered_response
+        
+    except Exception as e:
+        print(f"Semantic Search Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/generate/mock-paper")
+async def generate_mock_paper(request: dict):
+    """
+    Generate a mock examination paper using RAG.
+    
+    Request body:
+    {
+      "subject": "Software Project Management",
+      "sections": [
+        {
+          "name": "Section A",
+          "instruction": "Attempt any 4 out of 5",
+          "bloomMode": "simple",
+          "difficulty": "easy",
+          "questions": [
+            {
+              "number": 1,
+              "bloomLevel": "remember",
+              "totalMarks": 6,
+              "parts": [{"label": "a", "marks": 3}, {"label": "b", "marks": 3}]
+            }
+          ]
+        }
+      ]
+    }
+    """
+    try:
+        from backend.services.rag_service import RAGService
+        
+        # Validate required fields
+        if "subject" not in request or "sections" not in request:
+            raise HTTPException(status_code=400, detail="Missing required fields: subject, sections")
+        
+        # Initialize RAG service
+        rag_service = RAGService()
+        
+        # Generate mock paper
+        result = rag_service.generate_mock_paper(request)
+        
+        if "error" in result:
+            raise HTTPException(status_code=404, detail=result["error"])
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Mock Paper Generation Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+

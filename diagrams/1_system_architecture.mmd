@@ -1,0 +1,26 @@
+graph TD
+    classDef default fill:#ffffff,stroke:#000000,stroke-width:2px,color:#000000;
+    
+    User["User"] -->|Interacts with| FE["Frontend (Next.js)"]
+    FE -->|API Requests| BE["Backend (FastAPI)"]
+    
+    subgraph Data_Storage ["Data Storage"]
+        direction TB
+        PG[("PostgreSQL\n(Metadata)")]
+        FS["File Storage\n(PDFs)"]
+        VDB[("Vector DB - Qdrant\n(Planned)")]
+    end
+    
+    subgraph Processing ["Processing Pipeline"]
+        direction TB
+        OCR["OCR & Metadata Pipeline"]
+    end
+    
+    BE -->|Read/Write Metadata| PG
+    BE -->|Upload/Retrieve Files| FS
+    BE -->|Trigger Processing| OCR
+    OCR -->|Update Metadata| PG
+    OCR -->|Store Embeddings| VDB
+    
+    style Data_Storage fill:#f5f5f5,stroke:#333,color:black
+    style Processing fill:#f5f5f5,stroke:#333,color:black

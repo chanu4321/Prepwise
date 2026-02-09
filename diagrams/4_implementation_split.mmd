@@ -1,0 +1,30 @@
+graph TB
+    classDef implemented fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#000000;
+    classDef upcoming fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,stroke-dasharray: 5 5,color:#000000;
+
+    subgraph Container [Implementation Strategy]
+        direction LR
+        
+        subgraph Col1 [Part 1: Implemented]
+            direction TB
+            P1_1[Upload System]
+            P1_2[OCR Module]
+            P1_3[Metadata Extraction]
+            P1_4[File Storage]
+            P1_5[Frontend + Backend]
+        end
+        
+        subgraph Col2 [Part 2: Upcoming]
+            direction TB
+            P2_1[Search]
+            P2_2[Vector Embeddings]
+            P2_3[AI Paper Generation]
+        end
+    end
+    
+    class P1_1,P1_2,P1_3,P1_4,P1_5 implemented;
+    class P2_1,P2_2,P2_3 upcoming;
+    
+    style Col1 fill:#ffffff,stroke:#333,stroke-width:2px,color:black
+    style Col2 fill:#ffffff,stroke:#333,stroke-width:2px,color:black
+    style Container fill:#ffffff,stroke:none,color:black

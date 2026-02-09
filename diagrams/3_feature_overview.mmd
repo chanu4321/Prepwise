@@ -1,0 +1,26 @@
+graph TB
+    classDef card fill:#ffffff,stroke:#000000,stroke-width:2px,color:#000000;
+    
+    subgraph Features [System Features]
+        direction TB
+        
+        subgraph Row1 [Core Functionality]
+            direction LR
+            F1[PYQ Upload]
+            F2[OCR Processing]
+            F3[Metadata Extraction]
+        end
+        
+        subgraph Row2 [Advanced Capabilities]
+            direction LR
+            F4[Filter-Based Search]
+            F5[Semantic Search]
+            F6[AI Paper Generation]
+        end
+    end
+
+    class F1,F2,F3,F4,F5,F6 card;
+    
+    style Features fill:#ffffff,stroke:none,color:black
+    style Row1 fill:none,stroke:none,color:black
+    style Row2 fill:none,stroke:none,color:black

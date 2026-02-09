@@ -1,0 +1,45 @@
+graph LR
+    classDef default fill:#ffffff,stroke:#000000,stroke-width:2px,color:#000000;
+    
+    subgraph P1 ["Phase 1: Project Planning & UI Design (Week 1)"]
+        direction TB
+        W1["System Vision\nWireframes & Layouts\nGit Setup"]
+    end
+
+    subgraph P2 ["Phase 2: Frontend Foundation (Weeks 2-4)"]
+        direction TB
+        W2["Week 2: Next.js Setup\nTailwind Config"]
+        W3["Week 3: Upload Page\n& Dashboard UI"]
+        W4["Week 4: Search UI\n& Results Grid"]
+    end
+
+    subgraph P3 ["Phase 3: Data & Vector Infra (Weeks 5-6)"]
+        direction TB
+        W5["Week 5: PostgreSQL\nSchema & Indexing"]
+        W6["Week 6: Qdrant Setup\n& Embeddings"]
+    end
+
+    subgraph P4 ["Phase 4: Intelligence Pipeline (Weeks 7-10)"]
+        direction TB
+        W7["Week 7: FastAPI Backend"]
+        W8["Week 8: OCR & Metadata\nPipeline"]
+        W9["Week 9: Semantic Search\nAPI"]
+        W10["Week 10: AI Paper Gen\n(RAG)"]
+    end
+
+    subgraph P5 ["Phase 5: Integration & Finalization (Weeks 11-12)"]
+        direction TB
+        W11["Week 11: Full Integration\n& Testing"]
+        W12["Week 12: Final QA,\nDocs & PPT"]
+    end
+
+    P1 ==> P2
+    P2 ==> P3
+    P3 ==> P4
+    P4 ==> P5
+
+    style P1 fill:#fff,stroke:#333,color:black
+    style P2 fill:#fff,stroke:#333,color:black
+    style P3 fill:#fff,stroke:#333,color:black
+    style P4 fill:#fff,stroke:#333,color:black
+    style P5 fill:#fff,stroke:#333,color:black
