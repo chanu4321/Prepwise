@@ -356,7 +356,16 @@ REQUIREMENTS:
 2. Total marks: {marks}
 3. Style matches the reference questions below, but DO NOT COPY THEM exactly.
 4. Vary your question structure - don't use the same opening pattern every time
-5. The question should be direct and professional
+5. The question should be direct and professional"""
+
+        # Add multi-part instructions if needed
+        if len(parts) > 1:
+            prompt += f"\n6. This is a MULTI-PART question with {len(parts)} parts. Format your response with clear part labels:\n"
+            for part in parts:
+                prompt += f"   ({part['label']}) [Your sub-question here] - {part['marks']} marks\n"
+            prompt += "\nEnsure each part is clearly labeled and addresses a distinct aspect of the topic."
+        
+        prompt += """
 
 GUIDELINES:
 - Output ONLY the question text, no explanations or notes after it
@@ -365,9 +374,9 @@ GUIDELINES:
 - Keep the question focused and clear
 
 REFERENCE CONTEXT (for style only, do not copy):
-{context[:1500]}
+{context}
 
-Generate the question now:"""
+Generate the question now:""".format(context=context[:1500])
     
         return prompt
     def _parse_question_parts(self, generated_text: str, parts_config: List[Dict]) -> List[Dict]:
@@ -381,18 +390,62 @@ Generate the question now:"""
             }]
         
         # Multi-part question parsing
-        parsed_parts = []
-        for part_config in parts_config:
-            label = part_config["label"]
-            # Simple heuristic: look for (a), (b), etc.
-            # For MVP, just split evenly or return full text
-            parsed_parts.append({
-                "label": label,
-                "marks": part_config["marks"],
-                "text": f"[Part {label}] {generated_text[:200]}..."  # Simplified for MVP
-            })
+        import re
         
-        return parsed_parts
+        # Try to detect part markers: (a), a), (i), i), 1., etc.
+        # Common patterns: (a), (b), (c) OR a), b), c) OR (i), (ii) OR 1., 2., 3.
+        patterns = [
+            r'\([a-z]\)',  # (a), (b), (c)
+            r'[a-z]\)',    # a), b), c)
+            r'\([ivxlcdm]+\)',  # (i), (ii), (iii) - Roman numerals
+            r'[ivxlcdm]+\)',    # i), ii), iii)
+            r'\d+\.',      # 1., 2., 3.
+        ]
+        
+        # Try each pattern
+        for pattern in patterns:
+            markers = re.finditer(pattern, generated_text, re.IGNORECASE)
+            marker_positions = [(m.group(), m.start(), m.end()) for m in markers]
+            
+            # If we found markers equal to number of parts, use this pattern
+            if len(marker_positions) >= len(parts_config):
+                parsed_parts = []
+                
+                for i, part_config in enumerate(parts_config):
+                    if i < len(marker_positions):
+                        start_pos = marker_positions[i][2]  # End of marker
+                        end_pos = marker_positions[i + 1][1] if i + 1 < len(marker_positions) else len(generated_text)
+                        
+                        part_text = generated_text[start_pos:end_pos].strip()
+                        
+                        parsed_parts.append({
+                            "label": part_config["label"],
+                            "marks": part_config["marks"],
+                            "text": part_text
+                        })
+                
+                return parsed_parts
+        
+        # Fallback: No clear markers found, split by paragraphs or sentences
+        logger.warning("No clear part markers found, using fallback splitting")
+        
+        # Try splitting by double newlines (paragraphs)
+        paragraphs = [p.strip() for p in generated_text.split('\n\n') if p.strip()]
+        
+        if len(paragraphs) >= len(parts_config):
+            return [{
+                "label": part_config["label"],
+                "marks": part_config["marks"],
+                "text": paragraphs[i] if i < len(paragraphs) else generated_text
+            } for i, part_config in enumerate(parts_config)]
+        
+        # Ultimate fallback: Return full text for each part with note
+        return [{
+            "label": part_config["label"],
+            "marks": part_config["marks"],
+            "text": generated_text.strip()
+        } for part_config in parts_config]
+    
     
     def _fallback_question(self, q_config: Dict) -> Dict:
         """Return a fallback question if generation fails."""

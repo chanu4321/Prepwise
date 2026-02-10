@@ -105,21 +105,27 @@ export default function GeneratePage() {
         const section = updated[sectionIndex];
         const newNumber = section.questions.length + 1;
 
-        // Smart defaults based on section difficulty
+        // Smart defaults based on section Bloom mode
         let defaultBloom = "understand";
         let defaultMarks = 6;
 
         if (section.bloomMode === "simple" && section.difficulty) {
-            const diffMap = {
-                "easy": { bloom: "remember", marks: 4 },
-                "medium": { bloom: "apply", marks: 6 },
-                "hard": { bloom: "analyze", marks: 10 }
+            // Use distribution cycling for variety
+            const distributions: Record<string, string[]> = {
+                easy: ['remember', 'remember', 'understand', 'understand', 'apply'],
+                medium: ['remember', 'understand', 'apply', 'apply', 'analyze'],
+                hard: ['understand', 'apply', 'analyze', 'analyze', 'evaluate', 'create']
             };
-            const defaults = diffMap[section.difficulty as keyof typeof diffMap];
-            if (defaults) {
-                defaultBloom = defaults.bloom;
-                defaultMarks = defaults.marks;
+
+            const dist = distributions[section.difficulty];
+            if (dist) {
+                // Cycle through distribution (0-indexed)
+                defaultBloom = dist[(newNumber - 1) % dist.length];
             }
+
+            // Marks based on difficulty
+            const marksMap: Record<string, number> = { easy: 4, medium: 6, hard: 10 };
+            defaultMarks = marksMap[section.difficulty] || 6;
         }
 
         updated[sectionIndex].questions.push({
@@ -384,36 +390,133 @@ export default function GeneratePage() {
                             <div className="space-y-2">
                                 <label className="block text-sm font-medium">Questions</label>
                                 {section.questions.map((q, qIdx) => (
-                                    <div key={q.id || qIdx} className="flex items-center gap-2 p-2 bg-muted/30 rounded">
-                                        <GripVertical className="h-4 w-4 text-muted-foreground" />
-                                        <span className="text-sm">Q{q.number}</span>
-                                        <select
-                                            value={q.bloomLevel}
-                                            onChange={(e) => {
-                                                const updated = [...sections];
-                                                updated[sIdx].questions[qIdx].bloomLevel = e.target.value;
-                                                setSections(updated);
-                                            }}
-                                            className="px-2 py-1 rounded border text-sm"
-                                        >
-                                            {bloomLevels.map(level => (
-                                                <option key={level} value={level}>{level.charAt(0).toUpperCase() + level.slice(1)}</option>
-                                            ))}
-                                        </select>
-                                        <input
-                                            type="number"
-                                            value={q.totalMarks}
-                                            onChange={(e) => {
-                                                const val = parseInt(e.target.value);
-                                                const updated = [...sections];
-                                                updated[sIdx].questions[qIdx].totalMarks = isNaN(val) ? 0 : val;
-                                                setSections(updated);
-                                            }}
-                                            className="w-16 px-2 py-1 rounded border text-sm"
-                                        />
-                                        <span className="text-sm text-muted-foreground">marks</span>
+                                    <div key={q.id || qIdx}>
+                                        <div className="flex items-center gap-2 p-2 bg-muted/30 rounded">
+                                            <GripVertical className="h-4 w-4 text-muted-foreground" />
+                                            <span className="text-sm">Q{q.number}</span>
+
+                                            {/* Only show Bloom dropdown in Advanced mode */}
+                                            {section.bloomMode === "advanced" && (
+                                                <select
+                                                    value={q.bloomLevel}
+                                                    onChange={(e) => {
+                                                        const updated = [...sections];
+                                                        updated[sIdx].questions[qIdx].bloomLevel = e.target.value;
+                                                        setSections(updated);
+                                                    }}
+                                                    className="px-2 py-1 rounded border text-sm"
+                                                >
+                                                    {bloomLevels.map(level => (
+                                                        <option key={level} value={level}>{level.charAt(0).toUpperCase() + level.slice(1)}</option>
+                                                    ))}
+                                                </select>
+                                            )}
+
+                                            {/* Show assigned Bloom level in Simple mode (read-only) */}
+                                            {section.bloomMode === "simple" && (
+                                                <span className="px-2 py-1 text-xs bg-primary/10 text-primary rounded">
+                                                    {q.bloomLevel.charAt(0).toUpperCase() + q.bloomLevel.slice(1)}
+                                                </span>
+                                            )}
+
+                                            <input
+                                                type="number"
+                                                value={q.totalMarks}
+                                                onChange={(e) => {
+                                                    const val = parseInt(e.target.value);
+                                                    const updated = [...sections];
+                                                    updated[sIdx].questions[qIdx].totalMarks = isNaN(val) ? 0 : val;
+                                                    setSections(updated);
+                                                }}
+                                                className="w-16 px-2 py-1 rounded border text-sm"
+                                            />
+                                            <span className="text-sm text-muted-foreground">marks</span>
+
+                                            {/* Multi-Part Toggle Button */}
+                                            <button
+                                                onClick={() => {
+                                                    const updated = [...sections];
+                                                    const question = updated[sIdx].questions[qIdx];
+                                                    // Toggle: If single part, add a second part. If multi-part, collapse view handled by state
+                                                    if (question.parts.length === 1 && !question.parts[0].label) {
+                                                        // Convert to multi-part: split marks evenly
+                                                        const halfMarks = Math.floor(question.totalMarks / 2);
+                                                        question.parts = [
+                                                            { label: "a", marks: halfMarks },
+                                                            { label: "b", marks: question.totalMarks - halfMarks }
+                                                        ];
+                                                    } else if (question.parts.length > 1 || question.parts[0].label) {
+                                                        // Reset to single part
+                                                        question.parts = [{ label: "", marks: question.totalMarks }];
+                                                    }
+                                                    setSections(updated);
+                                                }}
+                                                className="text-xs text-muted-foreground hover:text-foreground"
+                                                title={q.parts.length > 1 || q.parts[0]?.label ? "Remove parts" : "Make multi-part"}
+                                            >
+                                                {q.parts.length > 1 || q.parts[0]?.label ? `${q.parts.length} parts` : "+ Parts"}
+                                            </button>
+                                        </div>
+
+                                        {/* Multi-Part Configuration */}
+                                        {(q.parts.length > 1 || q.parts[0]?.label) && (
+                                            <div className="ml-8 mt-1 space-y-1 border-l-2 border-primary/20 pl-3">
+                                                {q.parts.map((part, pIdx) => (
+                                                    <div key={pIdx} className="flex items-center gap-2 text-xs">
+                                                        <span className="text-muted-foreground">({part.label})</span>
+                                                        <input
+                                                            type="number"
+                                                            value={part.marks}
+                                                            onChange={(e) => {
+                                                                const val = parseInt(e.target.value) || 0;
+                                                                const updated = [...sections];
+                                                                updated[sIdx].questions[qIdx].parts[pIdx].marks = val;
+                                                                // Update total marks
+                                                                const totalMarks = updated[sIdx].questions[qIdx].parts.reduce((sum, p) => sum + p.marks, 0);
+                                                                updated[sIdx].questions[qIdx].totalMarks = totalMarks;
+                                                                setSections(updated);
+                                                            }}
+                                                            className="w-12 px-1 py-0.5 rounded border"
+                                                        />
+                                                        <span className="text-muted-foreground">marks</span>
+                                                        {q.parts.length > 2 && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    const updated = [...sections];
+                                                                    updated[sIdx].questions[qIdx].parts.splice(pIdx, 1);
+                                                                    // Recalculate total
+                                                                    const totalMarks = updated[sIdx].questions[qIdx].parts.reduce((sum, p) => sum + p.marks, 0);
+                                                                    updated[sIdx].questions[qIdx].totalMarks = totalMarks;
+                                                                    setSections(updated);
+                                                                }}
+                                                                className="text-destructive/70 hover:text-destructive"
+                                                            >
+                                                                ×
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                                <button
+                                                    onClick={() => {
+                                                        const updated = [...sections];
+                                                        const parts = updated[sIdx].questions[qIdx].parts;
+                                                        // Get next label
+                                                        const nextLabel = String.fromCharCode(97 + parts.length); // a, b, c, ...
+                                                        parts.push({ label: nextLabel, marks: 2 });
+                                                        // Update total
+                                                        const totalMarks = parts.reduce((sum, p) => sum + p.marks, 0);
+                                                        updated[sIdx].questions[qIdx].totalMarks = totalMarks;
+                                                        setSections(updated);
+                                                    }}
+                                                    className="text-xs text-primary hover:underline"
+                                                >
+                                                    + Add part
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
+
                                 <button
                                     onClick={() => addQuestion(sIdx)}
                                     className="text-sm text-primary hover:underline flex items-center gap-1"
@@ -480,8 +583,8 @@ export default function GeneratePage() {
                                                         <QuestionItem id={q.id} question={q} index={i} />
                                                         {q.validation && q.validation.issues && q.validation.issues.length > 0 && (
                                                             <div className={`mt-1 px-2 py-1 text-xs rounded ${q.validation.severity === 'error'
-                                                                    ? 'bg-red-100 text-red-800 border border-red-300'
-                                                                    : 'bg-yellow-100 text-yellow-800 border border-yellow-300'
+                                                                ? 'bg-red-100 text-red-800 border border-red-300'
+                                                                : 'bg-yellow-100 text-yellow-800 border border-yellow-300'
                                                                 }`}>
                                                                 <span className="font-semibold">
                                                                     {q.validation.severity === 'error' ? '⚠ Validation Error:' : '⚡ Warning:'}

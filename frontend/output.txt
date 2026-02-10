@@ -1,0 +1,4 @@
+src/app/generate/page.tsx(460,33): error TS1005: ')' expected.
+src/app/generate/page.tsx(461,33): error TS1005: ',' expected.
+src/app/generate/page.tsx(461,34): error TS1136: Property assignment expected.
+src/app/generate/page.tsx(515,38): error TS1005: ',' expected.
