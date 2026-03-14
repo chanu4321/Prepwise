@@ -17,7 +17,7 @@ import {
     verticalListSortingStrategy
 } from '@dnd-kit/sortable';
 import { QuestionItem } from '@/components/QuestionItem';
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BookOpen, Plus, Trash2, GripVertical } from "lucide-react";
 
 type QuestionPart = {
@@ -28,12 +28,15 @@ type QuestionPart = {
 };
 
 type Question = {
-    id: string; // DnD needs unique ID
+    module?: string;
+    id: string;
     number: number;
     bloomLevel: string;
     totalMarks: number;
     parts: QuestionPart[];
     rawGeneration?: string;
+    validation?: any;
+    isPool?: boolean;
 };
 
 type Section = {
@@ -44,7 +47,7 @@ type Section = {
     difficulty?: string;
     bloomDistribution?: Record<string, number>;
     questions: Question[];
-    pool?: Question[]; // Make pool optional but array
+    pool?: Question[];
     generate_pool?: boolean;
 };
 
@@ -73,15 +76,75 @@ export default function GeneratePage() {
             pool: []
         }
     ]);
+    const [totalPaperMarks, setTotalPaperMarks] = useState(100);
     const [generatedPaper, setGeneratedPaper] = useState<any>(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [activeId, setActiveId] = useState<string | null>(null);
+    const [syllabus, setSyllabus] = useState<any>(null);
+    const [isFetchingSyllabus, setIsFetchingSyllabus] = useState(false);
+
+    const fetchSyllabus = async () => {
+        if (!subject) return;
+        setIsFetchingSyllabus(true);
+        try {
+            const res = await fetch(`http://localhost:8000/api/v1/syllabus/${subject}`);
+            if (res.ok) {
+                const data = await res.json();
+                setSyllabus(data.data);
+            } else {
+                setSyllabus(null);
+            }
+        } catch {
+            setSyllabus(null);
+        } finally {
+            setIsFetchingSyllabus(false);
+        }
+    };
+
+    useEffect(() => {
+        const timer = setTimeout(() => { fetchSyllabus(); }, 800);
+        return () => clearTimeout(timer);
+    }, [subject]);
+
+    const assignedMarks = sections.reduce((acc, section) => {
+        section.questions.forEach(q => {
+            if (q.module) {
+                acc[q.module] = (acc[q.module] || 0) + q.totalMarks;
+            }
+        });
+        return acc;
+    }, {} as Record<string, number>);
+
+    // Greedy auto-distribution: assign modules to questions to best match syllabus weightage
+    const autoDistributeModules = () => {
+        if (!syllabus || !syllabus.modules.length) return;
+
+        // 1. Calculate target marks per module
+        const remaining: Record<string, number> = {};
+        syllabus.modules.forEach((m: any) => {
+            remaining[m.name] = Math.round(totalPaperMarks * (m.weightage_percent / 100));
+        });
+
+        // 2. Greedily assign each question to the module that still needs the most marks
+        const updated = sections.map(section => ({
+            ...section,
+            questions: section.questions.map(q => {
+                // Find module with highest remaining need
+                const bestModule = Object.entries(remaining)
+                    .sort(([, a], [, b]) => b - a)[0]?.[0];
+                if (bestModule) {
+                    remaining[bestModule] = Math.max(0, remaining[bestModule] - q.totalMarks);
+                    return { ...q, module: bestModule };
+                }
+                return q;
+            })
+        }));
+        setSections(updated);
+    };
 
     const sensors = useSensors(
         useSensor(PointerSensor),
-        useSensor(KeyboardSensor, {
-            coordinateGetter: sortableKeyboardCoordinates,
-        })
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
 
     const addSection = () => {
@@ -104,30 +167,19 @@ export default function GeneratePage() {
         const updated = [...sections];
         const section = updated[sectionIndex];
         const newNumber = section.questions.length + 1;
-
-        // Smart defaults based on section Bloom mode
         let defaultBloom = "understand";
         let defaultMarks = 6;
-
         if (section.bloomMode === "simple" && section.difficulty) {
-            // Use distribution cycling for variety
             const distributions: Record<string, string[]> = {
                 easy: ['remember', 'remember', 'understand', 'understand', 'apply'],
                 medium: ['remember', 'understand', 'apply', 'apply', 'analyze'],
                 hard: ['understand', 'apply', 'analyze', 'analyze', 'evaluate', 'create']
             };
-
             const dist = distributions[section.difficulty];
-            if (dist) {
-                // Cycle through distribution (0-indexed)
-                defaultBloom = dist[(newNumber - 1) % dist.length];
-            }
-
-            // Marks based on difficulty
+            if (dist) defaultBloom = dist[(newNumber - 1) % dist.length];
             const marksMap: Record<string, number> = { easy: 4, medium: 6, hard: 10 };
             defaultMarks = marksMap[section.difficulty] || 6;
         }
-
         updated[sectionIndex].questions.push({
             id: `q-${Date.now()}`,
             number: newNumber,
@@ -141,37 +193,24 @@ export default function GeneratePage() {
     const generatePaper = async () => {
         setIsGenerating(true);
         try {
-            // Enable pool generation for all sections
             const sectionsWithPool = sections.map(s => ({ ...s, generate_pool: true }));
-
             const response = await fetch("http://localhost:8000/api/v1/generate/mock-paper", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ subject, sections: sectionsWithPool })
             });
-
             if (response.ok) {
                 const data = await response.json();
-
-                // Post-process to add IDs and ensure structure for DnD
                 const processedSections = data.sections.map((s: any, idx: number) => ({
                     ...s,
                     id: sections[idx]?.id || `section-${idx}`,
                     questions: s.questions.map((q: any, qIdx: number) => ({ ...q, id: `sq-${idx}-${qIdx}` })),
                     pool: s.pool?.map((q: any, pIdx: number) => ({ ...q, id: `pq-${idx}-${pIdx}` })) || []
                 }));
-
-                // Debugging: Log the received data
-                console.log("RAG Response Data:", data);
-                console.log("Processed Sections:", processedSections);
-
                 setGeneratedPaper({ ...data, sections: processedSections });
-
-                // Also scroll to result
                 setTimeout(() => {
                     document.getElementById('generated-result')?.scrollIntoView({ behavior: 'smooth' });
                 }, 100);
-
             } else {
                 alert("Failed to generate paper");
             }
@@ -183,75 +222,45 @@ export default function GeneratePage() {
         }
     };
 
-    // Drag and Drop Logic
-    const handleDragStart = (event: any) => {
-        setActiveId(event.active.id);
-    };
+    const handleDragStart = (event: any) => { setActiveId(event.active.id); };
 
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
         setActiveId(null);
-
-        if (!over) return;
-        if (active.id === over.id) return;
-        if (!generatedPaper) return;
-
-        // Clone current state
+        if (!over || active.id === over.id || !generatedPaper) return;
         const newSections = [...generatedPaper.sections];
-
-        // Find which section and which list (questions or pool) the items belong to
         const findLocation = (id: string) => {
             for (let sIdx = 0; sIdx < newSections.length; sIdx++) {
                 const section = newSections[sIdx];
                 const qIdx = section.questions.findIndex((q: Question) => q.id === id);
                 if (qIdx !== -1) return { sIdx, list: 'questions', idx: qIdx };
-
                 const pIdx = section.pool?.findIndex((q: Question) => q.id === id);
                 if (pIdx !== -1) return { sIdx, list: 'pool', idx: pIdx };
             }
             return null;
         };
-
         const src = findLocation(active.id as string);
         const dest = findLocation(over.id as string);
-
-        if (!src || !dest) return;
-
-        // If in same section
-        if (src.sIdx === dest.sIdx) {
-            const section = newSections[src.sIdx];
-
-            // 1. Reordering within same list
-            if (src.list === dest.list) {
-                if (src.list === 'questions') {
-                    section.questions = arrayMove(section.questions, src.idx, dest.idx);
-                    // Update numbers
-                    section.questions.forEach((q: Question, i: number) => q.number = i + 1);
-                } else {
-                    section.pool = arrayMove(section.pool!, src.idx, dest.idx);
-                }
+        if (!src || !dest || src.sIdx !== dest.sIdx) return;
+        const section = newSections[src.sIdx];
+        if (src.list === dest.list) {
+            if (src.list === 'questions') {
+                section.questions = arrayMove(section.questions, src.idx, dest.idx);
+                section.questions.forEach((q: Question, i: number) => { q.number = i + 1; });
+            } else {
+                section.pool = arrayMove(section.pool!, src.idx, dest.idx);
             }
-            // 2. Moving between lists (Swap/Move)
-            else {
-                // If moving from Pool to Questions (Swap if dropped on Question, Insert if different logic)
-                const srcList = src.list === 'questions' ? section.questions : section.pool!;
-                const destList = dest.list === 'questions' ? section.questions : section.pool!;
-
-                const srcItem = srcList[src.idx];
-                const destItem = destList[dest.idx];
-
-                srcList[src.idx] = destItem;
-                destList[dest.idx] = srcItem;
-
-                // Update re-assigned numbers for main list
-                section.questions.forEach((q: Question, i: number) => q.number = i + 1);
-            }
-
-            setGeneratedPaper({ ...generatedPaper, sections: newSections });
+        } else {
+            const srcList = src.list === 'questions' ? section.questions : section.pool!;
+            const destList = dest.list === 'questions' ? section.questions : section.pool!;
+            const tmp = srcList[src.idx];
+            srcList[src.idx] = destList[dest.idx];
+            destList[dest.idx] = tmp;
+            section.questions.forEach((q: Question, i: number) => { q.number = i + 1; });
         }
+        setGeneratedPaper({ ...generatedPaper, sections: newSections });
     };
 
-    // Helper to find the active question object for the drag overlay
     const findActiveQuestion = (id: string) => {
         if (!generatedPaper) return null;
         for (const section of generatedPaper.sections) {
@@ -274,19 +283,22 @@ export default function GeneratePage() {
 
             {/* Configuration Form */}
             <div className="bg-card rounded-xl border p-6 mb-6 space-y-6">
+
                 {/* Subject & Duration */}
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid md:grid-cols-3 gap-4">
                     <div>
-                        <label className="block text-sm font-medium mb-2">Subject</label>
+                        <label className="block text-sm font-medium mb-2">Subject Code</label>
                         <input
                             type="text"
                             value={subject}
                             onChange={(e) => setSubject(e.target.value)}
+                            placeholder="e.g. CS101"
                             className="w-full px-3 py-2 rounded-md border border-input bg-background"
                         />
+                        {isFetchingSyllabus && <span className="text-xs text-muted-foreground ml-1">Fetching syllabus...</span>}
                     </div>
                     <div>
-                        <label className="block text-sm font-medium mb-2">Duration (minutes)</label>
+                        <label className="block text-sm font-medium mb-2">Duration (mins)</label>
                         <input
                             type="number"
                             value={duration}
@@ -297,7 +309,64 @@ export default function GeneratePage() {
                             className="w-full px-3 py-2 rounded-md border border-input bg-background"
                         />
                     </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-2">Total Paper Marks</label>
+                        <input
+                            type="number"
+                            value={totalPaperMarks}
+                            onChange={(e) => {
+                                const val = parseInt(e.target.value);
+                                setTotalPaperMarks(isNaN(val) || val <= 0 ? 100 : val);
+                            }}
+                            className="w-full px-3 py-2 rounded-md border border-input bg-background"
+                        />
+                    </div>
                 </div>
+
+                {/* Syllabus Fulfillment Tracker */}
+                {syllabus && (
+                    <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="font-semibold text-primary">{syllabus.subject_name} ({syllabus.subject_code}) — Syllabus Strategy</h3>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={autoDistributeModules}
+                                    className="text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-md hover:bg-primary/90 font-medium"
+                                    title="Auto-assign modules to questions based on syllabus weightage"
+                                >
+                                    ⚡ Auto-Distribute
+                                </button>
+                                <span className="text-sm font-medium">
+                                    {sections.reduce((sum, s) => sum + s.questions.reduce((qSum, q) => qSum + q.totalMarks, 0), 0)} / {totalPaperMarks} marks
+                                </span>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {syllabus.modules.map((m: any, idx: number) => {
+                                const targetMarks = Math.round(totalPaperMarks * (m.weightage_percent / 100));
+                                const actualMarks = assignedMarks[m.name] || 0;
+                                const diff = actualMarks - targetMarks;
+                                return (
+                                    <div key={idx} className="bg-background rounded border p-2 text-sm">
+                                        <div className="font-medium truncate" title={m.name}>{m.name}</div>
+                                        <div className="flex justify-between text-xs mt-1">
+                                            <span className="text-muted-foreground">{m.weightage_percent}%</span>
+                                            <span className={`font-semibold ${diff === 0 ? 'text-green-600' : Math.abs(diff) <= 5 ? 'text-yellow-600' : 'text-red-600'}`}>
+                                                {actualMarks} / {targetMarks} m
+                                            </span>
+                                        </div>
+                                        <div className="w-full bg-muted h-1 mt-2 rounded-full overflow-hidden">
+                                            <div
+                                                className={`h-full ${actualMarks >= targetMarks ? 'bg-green-500' : 'bg-primary'}`}
+                                                style={{ width: `${Math.min(targetMarks > 0 ? (actualMarks / targetMarks) * 100 : 0, 100)}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
 
                 {/* Sections */}
                 <div className="space-y-4">
@@ -389,13 +458,13 @@ export default function GeneratePage() {
                             {/* Questions */}
                             <div className="space-y-2">
                                 <label className="block text-sm font-medium">Questions</label>
+
                                 {section.questions.map((q, qIdx) => (
                                     <div key={q.id || qIdx}>
-                                        <div className="flex items-center gap-2 p-2 bg-muted/30 rounded">
+                                        <div className="flex items-center gap-2 p-2 bg-muted/30 rounded flex-wrap">
                                             <GripVertical className="h-4 w-4 text-muted-foreground" />
                                             <span className="text-sm">Q{q.number}</span>
 
-                                            {/* Only show Bloom dropdown in Advanced mode */}
                                             {section.bloomMode === "advanced" && (
                                                 <select
                                                     value={q.bloomLevel}
@@ -412,11 +481,27 @@ export default function GeneratePage() {
                                                 </select>
                                             )}
 
-                                            {/* Show assigned Bloom level in Simple mode (read-only) */}
                                             {section.bloomMode === "simple" && (
                                                 <span className="px-2 py-1 text-xs bg-primary/10 text-primary rounded">
                                                     {q.bloomLevel.charAt(0).toUpperCase() + q.bloomLevel.slice(1)}
                                                 </span>
+                                            )}
+
+                                            {syllabus && (
+                                                <select
+                                                    value={q.module || ""}
+                                                    onChange={(e) => {
+                                                        const updated = [...sections];
+                                                        updated[sIdx].questions[qIdx].module = e.target.value;
+                                                        setSections(updated);
+                                                    }}
+                                                    className="px-2 py-1 rounded border text-sm max-w-[140px]"
+                                                >
+                                                    <option value="">Any Module</option>
+                                                    {syllabus.modules.map((m: any, mIdx: number) => (
+                                                        <option key={mIdx} value={m.name}>{m.name}</option>
+                                                    ))}
+                                                </select>
                                             )}
 
                                             <input
@@ -432,21 +517,17 @@ export default function GeneratePage() {
                                             />
                                             <span className="text-sm text-muted-foreground">marks</span>
 
-                                            {/* Multi-Part Toggle Button */}
                                             <button
                                                 onClick={() => {
                                                     const updated = [...sections];
                                                     const question = updated[sIdx].questions[qIdx];
-                                                    // Toggle: If single part, add a second part. If multi-part, collapse view handled by state
                                                     if (question.parts.length === 1 && !question.parts[0].label) {
-                                                        // Convert to multi-part: split marks evenly
-                                                        const halfMarks = Math.floor(question.totalMarks / 2);
+                                                        const half = Math.floor(question.totalMarks / 2);
                                                         question.parts = [
-                                                            { label: "a", marks: halfMarks },
-                                                            { label: "b", marks: question.totalMarks - halfMarks }
+                                                            { label: "a", marks: half },
+                                                            { label: "b", marks: question.totalMarks - half }
                                                         ];
-                                                    } else if (question.parts.length > 1 || question.parts[0].label) {
-                                                        // Reset to single part
+                                                    } else {
                                                         question.parts = [{ label: "", marks: question.totalMarks }];
                                                     }
                                                     setSections(updated);
@@ -455,6 +536,18 @@ export default function GeneratePage() {
                                                 title={q.parts.length > 1 || q.parts[0]?.label ? "Remove parts" : "Make multi-part"}
                                             >
                                                 {q.parts.length > 1 || q.parts[0]?.label ? `${q.parts.length} parts` : "+ Parts"}
+                                            </button>
+
+                                            <button
+                                                onClick={() => {
+                                                    const updated = [...sections];
+                                                    updated[sIdx].questions.splice(qIdx, 1);
+                                                    updated[sIdx].questions.forEach((q, i) => { q.number = i + 1; });
+                                                    setSections(updated);
+                                                }}
+                                                className="ml-auto text-destructive/60 hover:text-destructive text-xs"
+                                            >
+                                                ✕
                                             </button>
                                         </div>
 
@@ -471,7 +564,6 @@ export default function GeneratePage() {
                                                                 const val = parseInt(e.target.value) || 0;
                                                                 const updated = [...sections];
                                                                 updated[sIdx].questions[qIdx].parts[pIdx].marks = val;
-                                                                // Update total marks
                                                                 const totalMarks = updated[sIdx].questions[qIdx].parts.reduce((sum, p) => sum + p.marks, 0);
                                                                 updated[sIdx].questions[qIdx].totalMarks = totalMarks;
                                                                 setSections(updated);
@@ -484,7 +576,6 @@ export default function GeneratePage() {
                                                                 onClick={() => {
                                                                     const updated = [...sections];
                                                                     updated[sIdx].questions[qIdx].parts.splice(pIdx, 1);
-                                                                    // Recalculate total
                                                                     const totalMarks = updated[sIdx].questions[qIdx].parts.reduce((sum, p) => sum + p.marks, 0);
                                                                     updated[sIdx].questions[qIdx].totalMarks = totalMarks;
                                                                     setSections(updated);
@@ -500,10 +591,8 @@ export default function GeneratePage() {
                                                     onClick={() => {
                                                         const updated = [...sections];
                                                         const parts = updated[sIdx].questions[qIdx].parts;
-                                                        // Get next label
-                                                        const nextLabel = String.fromCharCode(97 + parts.length); // a, b, c, ...
+                                                        const nextLabel = String.fromCharCode(97 + parts.length);
                                                         parts.push({ label: nextLabel, marks: 2 });
-                                                        // Update total
                                                         const totalMarks = parts.reduce((sum, p) => sum + p.marks, 0);
                                                         updated[sIdx].questions[qIdx].totalMarks = totalMarks;
                                                         setSections(updated);
@@ -581,7 +670,7 @@ export default function GeneratePage() {
                                                 {section.questions.map((q: any, i: number) => (
                                                     <div key={q.id} className="relative">
                                                         <QuestionItem id={q.id} question={q} index={i} />
-                                                        {q.validation && q.validation.issues && q.validation.issues.length > 0 && (
+                                                        {q.validation?.issues?.length > 0 && (
                                                             <div className={`mt-1 px-2 py-1 text-xs rounded ${q.validation.severity === 'error'
                                                                 ? 'bg-red-100 text-red-800 border border-red-300'
                                                                 : 'bg-yellow-100 text-yellow-800 border border-yellow-300'

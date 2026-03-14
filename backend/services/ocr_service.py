@@ -141,3 +141,15 @@ class DocumentProcessor:
                 full_text += f"\n--- Page {idx + 1} ---\n[OCR Error]\n"
         
         return full_text.strip()
+
+    def extract_full_text_from_bytes(self, file_bytes: bytes) -> str:
+        """Extracts full text from a PDF provided as bytes by saving to a temp file."""
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+            tmp.write(file_bytes)
+            tmp_path = tmp.name
+        try:
+            return self.extract_full_text(tmp_path)
+        finally:
+            import os as _os
+            _os.unlink(tmp_path)

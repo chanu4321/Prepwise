@@ -185,10 +185,11 @@ class RAGService:
         bloom_level = q_config.get("bloomLevel", "understand")
         total_marks = q_config.get("totalMarks", 6)
         parts = q_config.get("parts", [])
+        module = q_config.get("module", None)
         
         # Build prompt
         prompt = self._build_question_prompt(
-            subject, bloom_level, total_marks, parts, context
+            subject, bloom_level, total_marks, parts, context, module
         )
         
         # Call Ollama Chat API
@@ -339,7 +340,7 @@ class RAGService:
             "severity": severity
         }
 
-    def _build_question_prompt(self, subject: str, bloom_level: str, marks: int, parts: List[Dict], context: str) -> str:
+    def _build_question_prompt(self, subject: str, bloom_level: str, marks: int, parts: List[Dict], context: str, module: str = None) -> str:
         """Build RAG prompt for question generation."""
         verb = BLOOM_VERBS.get(bloom_level, ["Explain"])[0]
         
@@ -347,7 +348,12 @@ class RAGService:
 
 BLOOM'S TAXONOMY LEVEL: {bloom_level.upper()}
 Required action verb: {verb}
+"""
 
+        if module:
+            prompt += f"\nTARGET MODULE: {module}\nThis question MUST specifically cover topics from this module.\n"
+
+        prompt += f"""
 TASK:
 Generate a NEW examination question for {subject} that tests the "{bloom_level}" cognitive level.
 

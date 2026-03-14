@@ -1,0 +1,8 @@
+{
+    "pythonVersion": "3.12",
+    "pythonPlatform": "Windows",
+    "pythonPath": "C:/Users/chanu/AppData/Local/Programs/Python/Python312/python.exe",
+    "venvPath": "C:/Users/chanu/AppData/Local/Programs/Python/Python312",
+    "include": ["backend"],
+    "exclude": ["frontend", "**/__pycache__"]
+}

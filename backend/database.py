@@ -36,7 +36,17 @@ def init_db():
             uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     """)
-    
+    # Create Syllabi Table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS syllabi (
+            id SERIAL PRIMARY KEY,
+            subject_code TEXT UNIQUE NOT NULL,
+            subject_name TEXT,
+            modules JSONB NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    """)
+
     conn.commit()
     cursor.close()
     conn.close()

@@ -11,18 +11,31 @@ export function Navbar() {
                 </Link>
                 <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
                     <div className="flex items-center space-x-4 md:space-x-6 text-sm font-medium">
+                         <Link
+                            href="/syllabus"
+                            className="flex items-center space-x-2 text-foreground/60 transition-colors hover:text-foreground/80"
+                        >
+                            <BookOpen className="h-4 w-4" />
+                            <span>Syllabus</span>
+                        </Link>
                         <Link
                             href="/upload"
                             className="flex items-center space-x-2 text-foreground/60 transition-colors hover:text-foreground/80"
                         >
                             <Upload className="h-4 w-4" />
-                            <span>Upload</span>
+                            <span>Upload Papers</span>
                         </Link>
                         <Link
                             href="/papers"
                             className="text-foreground/60 transition-colors hover:text-foreground/80"
                         >
-                            Browse
+                            Browse Papers
+                        </Link>
+                        <Link
+                            href="/generate"
+                            className="text-primary font-semibold transition-colors hover:text-primary/80"
+                        >
+                            Generate Paper
                         </Link>
                     </div>
                 </div>

@@ -1,12 +1,14 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Form
 from backend.services.ocr_service import DocumentProcessor
 import shutil
 import os
 import uuid
+import logging
 
 from typing import List, Optional
 from backend.models import PaperMetadata
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 # Store papers in 'backend/papers' directory
 processor = DocumentProcessor(upload_dir="backend/papers")
@@ -137,6 +139,49 @@ async def ingest_document(file: UploadFile = File(...)):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/syllabus/upload")
+async def upload_syllabus(
+    file: UploadFile = File(...),
+    subject_code: str = Form(...),
+    subject_name: str = Form(...)
+):
+    """Uploads a syllabus PDF, extracts modules and weightage, and saves to database."""
+    if not file.filename.endswith('.pdf'):
+        raise HTTPException(status_code=400, detail="Only PDF files are supported.")
+        
+    try:
+        file_bytes = await file.read()
+        
+        # Import dynamically or at top level to avoid circular imports if any
+        from backend.services.syllabus_service import process_and_save_syllabus
+        
+        result = process_and_save_syllabus(
+            file_bytes=file_bytes,
+            filename=file.filename,
+            subject_code=subject_code,
+            subject_name=subject_name
+        )
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", "Unknown error processing syllabus"))
+            
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error in syllabus upload endpoint: {e}")
+        raise HTTPException(status_code=500, detail=f"Error processing syllabus: {str(e)}")
+
+@router.get("/syllabus/{subject_code}")
+async def get_syllabus(subject_code: str):
+    """Retrieves a syllabus by subject code."""
+    from backend.services.syllabus_service import get_syllabus_by_code
+    
+    syllabus = get_syllabus_by_code(subject_code)
+    if not syllabus:
+        raise HTTPException(status_code=404, detail=f"Syllabus not found for subject code: {subject_code}")
+        
+    return {"success": True, "data": syllabus}
 
 @router.get("/documents", response_model=List[dict])
 async def get_documents():
