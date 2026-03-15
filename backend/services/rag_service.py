@@ -201,10 +201,11 @@ class RAGService:
             chat_payload = {
                 "model": os.getenv("LLM_MODEL", "qwen/qwen3-next-80b-a3b-thinking"),
                 "messages": [
-                    {"role": "system", "content": system_instruction},
-                    {"role": "user", "content": prompt}
+                    {"role": "user", "content": f"{system_instruction}\n\nTask: {prompt}"}
                 ],
-                "temperature": 0.7
+                "temperature": 0.6,
+                "top_p": 0.7,
+                "max_tokens": 4096
             }
             
             headers = {

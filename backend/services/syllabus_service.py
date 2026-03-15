@@ -42,10 +42,11 @@ def _parse_syllabus_with_llm(text: str) -> Optional[list]:
     payload = {
         "model": os.getenv("LLM_MODEL", "qwen/qwen3-next-80b-a3b-thinking"),
         "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Extract the module breakdown from this syllabus text:\n\n{text}"}
+            {"role": "user", "content": f"{system_prompt}\n\nTask: Extract the module breakdown from this syllabus text:\n\n{text}"}
         ],
-        "temperature": 0.1
+        "temperature": 0.6,
+        "top_p": 0.7,
+        "max_tokens": 4096
     }
 
     try:
