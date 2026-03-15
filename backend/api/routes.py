@@ -43,11 +43,11 @@ async def ingest_document(file: UploadFile = File(...)):
             
             # Validate critical fields (semester is optional)
             required_fields = [
-                metadata.get("subjectCode") or metadata.get("Subject Code"),
-                metadata.get("subjectName") or metadata.get("Subject Name"),
-                metadata.get("monthYear") or metadata.get("Month/Year"),
-                metadata.get("time") or metadata.get("Time"),
-                metadata.get("marks") or metadata.get("Marks")
+                metadata.get("subjectCode"),
+                metadata.get("subjectName"),
+                metadata.get("monthYear"),
+                metadata.get("time"),
+                metadata.get("marks")
             ]
             
             # Check if all required fields have values
@@ -70,10 +70,12 @@ async def ingest_document(file: UploadFile = File(...)):
             # Normalize path for DB (use forward slashes)
             db_file_path = file_path.replace("\\", "/")
 
-            # Handle marks field - sometimes OCR returns it as a dict
-            marks_value = metadata.get("marks") or metadata.get("Marks")
+            # Handle marks field - sometimes OCR returns it as a dict or integer
+            marks_value = metadata.get("marks")
             if isinstance(marks_value, dict):
                 marks_value = marks_value.get("Max Marks") or marks_value.get("max_marks") or str(marks_value)
+            elif isinstance(marks_value, int):
+                marks_value = str(marks_value)
             
             cur.execute(
                 """
@@ -84,11 +86,11 @@ async def ingest_document(file: UploadFile = File(...)):
                 (
                     filename,
                     db_file_path,
-                    metadata.get("subjectCode") or metadata.get("Subject Code"),
-                    metadata.get("subjectName") or metadata.get("Subject Name"),
-                    metadata.get("semester") or metadata.get("Semester"),
-                    metadata.get("monthYear") or metadata.get("Month/Year"),
-                    metadata.get("time") or metadata.get("Time"),
+                    metadata.get("subjectCode"),
+                    metadata.get("subjectName"),
+                    metadata.get("semester"),
+                    metadata.get("monthYear"),
+                    metadata.get("time"),
                     marks_value
                 )
             )

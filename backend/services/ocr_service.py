@@ -38,13 +38,13 @@ class DocumentProcessor:
         prompt = (
             f"Analyze the following text from a question paper headers:\n"
             f"{extracted_text[:2000]}\n\n"
-            "Extract the following metadata in strictly valid JSON format:\n"
-            "- Subject Code (Look for patterns like 'KCS401', 'RAS301', 'BCS301' etc.)\n"
-            "- Subject Name\n"
-            "- Semester (e.g., '3rd Sem')\n"
-            "- Month/Year (Look for 'Examination : Month, Year' or similar. e.g., 'June, 2023')\n"
-            "- Time (Duration)\n"
-            "- Marks (Max Marks)\n\n"
+            "Extract the following metadata in strictly valid JSON format exactly matching these keys:\n"
+            '- "subjectCode" (Look for patterns like "KCS401", "RAS301", "BCS301" etc.)\n'
+            '- "subjectName" (The name of the subject)\n'
+            '- "semester" (e.g., "3rd Sem", optional)\n'
+            '- "monthYear" (Look for "Examination : Month, Year" or similar. e.g., "June, 2023")\n'
+            '- "time" (Duration, e.g., "3 Hours")\n'
+            '- "marks" (Max Marks, look for "Max. Marks", "Maximum Marks", e.g., "60" or "100")\n\n'
             "Response must be ONLY the JSON object, no explanation."
         )
         

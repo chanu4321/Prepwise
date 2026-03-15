@@ -18,7 +18,19 @@ import {
 } from '@dnd-kit/sortable';
 import { QuestionItem } from '@/components/QuestionItem';
 import { useState, useEffect } from "react";
-import { BookOpen, Plus, Trash2, GripVertical } from "lucide-react";
+import { BookOpen, Plus, Trash2, GripVertical, ListFilter, MoreVertical, Sparkles, Brain, Search, PenTool, GitMerge, Target, Wand2 } from "lucide-react";
+
+const getBloomIcon = (level: string) => {
+    switch (level.toLowerCase()) {
+        case 'remember': return <Brain className="h-3.5 w-3.5" />;
+        case 'understand': return <Search className="h-3.5 w-3.5" />;
+        case 'apply': return <PenTool className="h-3.5 w-3.5" />;
+        case 'analyze': return <GitMerge className="h-3.5 w-3.5" />;
+        case 'evaluate': return <Target className="h-3.5 w-3.5" />;
+        case 'create': return <Sparkles className="h-3.5 w-3.5" />;
+        default: return <Brain className="h-3.5 w-3.5" />;
+    }
+};
 
 type QuestionPart = {
     label: string;
@@ -228,7 +240,14 @@ export default function GeneratePage() {
         const { active, over } = event;
         setActiveId(null);
         if (!over || active.id === over.id || !generatedPaper) return;
-        const newSections = [...generatedPaper.sections];
+        
+        // DEEP COPY to avoid mutating React state directly
+        const newSections = generatedPaper.sections.map((s: any) => ({
+            ...s,
+            questions: [...s.questions],
+            pool: s.pool ? [...s.pool] : []
+        }));
+
         const findLocation = (id: string) => {
             for (let sIdx = 0; sIdx < newSections.length; sIdx++) {
                 const section = newSections[sIdx];
@@ -241,22 +260,30 @@ export default function GeneratePage() {
         };
         const src = findLocation(active.id as string);
         const dest = findLocation(over.id as string);
-        if (!src || !dest || src.sIdx !== dest.sIdx) return;
-        const section = newSections[src.sIdx];
-        if (src.list === dest.list) {
+        if (!src || !dest) return;
+        
+        const srcSection = newSections[src.sIdx];
+        const destSection = newSections[dest.sIdx];
+
+        if (src.sIdx === dest.sIdx && src.list === dest.list) {
+            // Reordering within the same list
             if (src.list === 'questions') {
-                section.questions = arrayMove(section.questions, src.idx, dest.idx);
-                section.questions.forEach((q: Question, i: number) => { q.number = i + 1; });
+                srcSection.questions = arrayMove(srcSection.questions, src.idx, dest.idx);
+                srcSection.questions.forEach((q: Question, i: number) => { q.number = i + 1; });
             } else {
-                section.pool = arrayMove(section.pool!, src.idx, dest.idx);
+                srcSection.pool = arrayMove(srcSection.pool!, src.idx, dest.idx);
             }
         } else {
-            const srcList = src.list === 'questions' ? section.questions : section.pool!;
-            const destList = dest.list === 'questions' ? section.questions : section.pool!;
-            const tmp = srcList[src.idx];
-            srcList[src.idx] = destList[dest.idx];
-            destList[dest.idx] = tmp;
-            section.questions.forEach((q: Question, i: number) => { q.number = i + 1; });
+            // Moving between lists/sections
+            const srcList = src.list === 'questions' ? srcSection.questions : srcSection.pool!;
+            const destList = dest.list === 'questions' ? destSection.questions : destSection.pool!;
+            
+            const [movedItem] = srcList.splice(src.idx, 1);
+            destList.splice(dest.idx, 0, movedItem);
+
+            // Update question numbers for both sections
+            if (src.list === 'questions') srcSection.questions.forEach((q: Question, i: number) => { q.number = i + 1; });
+            if (dest.list === 'questions') destSection.questions.forEach((q: Question, i: number) => { q.number = i + 1; });
         }
         setGeneratedPaper({ ...generatedPaper, sections: newSections });
     };
@@ -275,127 +302,131 @@ export default function GeneratePage() {
     const draggedItem = activeId ? findActiveQuestion(activeId) : null;
 
     return (
-        <div className="container mx-auto px-4 py-8 max-w-6xl">
-            <div className="flex items-center gap-3 mb-8">
-                <BookOpen className="h-8 w-8 text-primary" />
-                <h1 className="text-3xl font-bold">Generate Mock Examination Paper</h1>
+        <div className="container mx-auto px-4 py-8 max-w-5xl text-[#E2E8F0]">
+            <div className="mb-10">
+                <h1 className="text-3xl font-extrabold tracking-tight text-white mb-2">Generate Mock Paper</h1>
+                <p className="text-[#94A3B8] text-sm font-medium">Engineer high-fidelity assessments with automated Bloom's Taxonomy mapping.</p>
             </div>
 
-            {/* Configuration Form */}
-            <div className="bg-card rounded-xl border p-6 mb-6 space-y-6">
+            {/* Inputs Row */}
+            <div className="grid md:grid-cols-3 gap-6 mb-10">
+                <div>
+                    <label className="block text-[11px] font-bold text-[#64748B] uppercase tracking-wider mb-2">Subject Code</label>
+                    <input
+                        type="text"
+                        value={subject}
+                        onChange={(e) => setSubject(e.target.value)}
+                        placeholder="e.g. CS101"
+                        className="w-full bg-[#131620] border border-white/5 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all text-white font-medium"
+                    />
+                    {isFetchingSyllabus && <span className="text-xs text-indigo-400 mt-1 block">Fetching syllabus...</span>}
+                </div>
+                <div>
+                    <label className="block text-[11px] font-bold text-[#64748B] uppercase tracking-wider mb-2">Duration (mins)</label>
+                    <input
+                        type="number"
+                        value={duration}
+                        onChange={(e) => {
+                            const val = parseInt(e.target.value);
+                            setDuration(isNaN(val) ? 0 : val);
+                        }}
+                        className="w-full bg-[#131620] border border-white/5 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all text-white font-medium"
+                    />
+                </div>
+                <div>
+                    <label className="block text-[11px] font-bold text-[#64748B] uppercase tracking-wider mb-2">Total Paper Marks</label>
+                    <input
+                        type="number"
+                        value={totalPaperMarks}
+                        onChange={(e) => {
+                            const val = parseInt(e.target.value);
+                            setTotalPaperMarks(isNaN(val) || val <= 0 ? 100 : val);
+                        }}
+                        className="w-full bg-[#131620] border border-white/5 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all text-white font-medium"
+                    />
+                </div>
+            </div>
 
-                {/* Subject & Duration */}
-                <div className="grid md:grid-cols-3 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium mb-2">Subject Code</label>
-                        <input
-                            type="text"
-                            value={subject}
-                            onChange={(e) => setSubject(e.target.value)}
-                            placeholder="e.g. CS101"
-                            className="w-full px-3 py-2 rounded-md border border-input bg-background"
-                        />
-                        {isFetchingSyllabus && <span className="text-xs text-muted-foreground ml-1">Fetching syllabus...</span>}
+            {syllabus && (
+                <div className="bg-[#131620] border border-indigo-500/20 rounded-xl p-4 mb-8">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="font-semibold text-indigo-400 text-sm">{syllabus.subject_name} ({syllabus.subject_code}) — Syllabus Strategy</h3>
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={autoDistributeModules}
+                                className="text-xs bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30 px-3 py-1.5 rounded-md font-medium transition-colors flex items-center gap-1"
+                            >
+                                ⚡ Auto-Distribute
+                            </button>
+                            <span className="text-sm font-medium text-white">
+                                {sections.reduce((sum, s) => sum + s.questions.reduce((qSum, q) => qSum + q.totalMarks, 0), 0)} / {totalPaperMarks} marks
+                            </span>
+                        </div>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium mb-2">Duration (mins)</label>
-                        <input
-                            type="number"
-                            value={duration}
-                            onChange={(e) => {
-                                const val = parseInt(e.target.value);
-                                setDuration(isNaN(val) ? 0 : val);
-                            }}
-                            className="w-full px-3 py-2 rounded-md border border-input bg-background"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium mb-2">Total Paper Marks</label>
-                        <input
-                            type="number"
-                            value={totalPaperMarks}
-                            onChange={(e) => {
-                                const val = parseInt(e.target.value);
-                                setTotalPaperMarks(isNaN(val) || val <= 0 ? 100 : val);
-                            }}
-                            className="w-full px-3 py-2 rounded-md border border-input bg-background"
-                        />
+
+                    {/* Per-module progress bars */}
+                    <div className="grid grid-cols-3 gap-x-6 gap-y-3">
+                        {[...syllabus.modules].sort((a: any, b: any) => {
+                            const na = parseInt((a.name.match(/\d+/) || ['0'])[0]);
+                            const nb = parseInt((b.name.match(/\d+/) || ['0'])[0]);
+                            return na - nb;
+                        }).map((m: any) => {
+                            const target = Math.round(totalPaperMarks * (m.weightage_percent / 100));
+                            const assigned = assignedMarks[m.name] || 0;
+                            const pct = target > 0 ? Math.min(100, Math.round((assigned / target) * 100)) : 0;
+                            const isOver = assigned > target;
+                            return (
+                                <div key={m.name}>
+                                    <div className="flex justify-between text-[11px] mb-1">
+                                        <span className="text-[#94A3B8] font-medium truncate max-w-[60%]">{m.name}</span>
+                                        <span className={isOver ? "text-orange-400 font-semibold" : assigned === target ? "text-emerald-400 font-semibold" : "text-[#64748B]"}>
+                                            {assigned} / {target} marks
+                                        </span>
+                                    </div>
+                                    <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                        <div
+                                            className={`h-full rounded-full transition-all duration-500 ${isOver ? 'bg-orange-400' : 'bg-indigo-500'}`}
+                                            style={{ width: `${pct}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
+            )}
 
-                {/* Syllabus Fulfillment Tracker */}
-                {syllabus && (
-                    <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-3">
-                            <h3 className="font-semibold text-primary">{syllabus.subject_name} ({syllabus.subject_code}) — Syllabus Strategy</h3>
-                            <div className="flex items-center gap-3">
-                                <button
-                                    onClick={autoDistributeModules}
-                                    className="text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-md hover:bg-primary/90 font-medium"
-                                    title="Auto-assign modules to questions based on syllabus weightage"
-                                >
-                                    ⚡ Auto-Distribute
-                                </button>
-                                <span className="text-sm font-medium">
-                                    {sections.reduce((sum, s) => sum + s.questions.reduce((qSum, q) => qSum + q.totalMarks, 0), 0)} / {totalPaperMarks} marks
-                                </span>
-                            </div>
+            {/* Sections Header */}
+            <div className="flex items-center gap-2 mb-6">
+                <ListFilter className="h-5 w-5 text-teal-400" />
+                <h2 className="text-xl font-bold text-white">Paper Sections</h2>
+            </div>
+
+            {/* Sections List */}
+            <div className="space-y-6 mb-10">
+                {sections.map((section, sIdx) => (
+                    <div key={section.id} className="bg-[#131620] border border-white/5 rounded-2xl overflow-hidden shadow-lg relative">
+                        {/* Section Header (optional name input, or hidden depending on design. Mockup doesn't show a huge header but we need a way to delete) */}
+                        <div className="flex justify-between items-center px-6 py-4 border-b border-white/5 bg-[#0f121b]">
+                            <input
+                                type="text"
+                                value={section.name}
+                                onChange={(e) => {
+                                    const updated = [...sections];
+                                    updated[sIdx].name = e.target.value;
+                                    setSections(updated);
+                                }}
+                                className="text-sm font-bold bg-transparent border-0 focus:outline-none text-white tracking-wide"
+                            />
+                            <button onClick={() => removeSection(sIdx)} className="text-[#64748B] hover:text-red-400 transition-colors bg-[#1E2335] rounded p-1.5">
+                                <Trash2 className="h-3.5 w-3.5" />
+                            </button>
                         </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                            {syllabus.modules.map((m: any, idx: number) => {
-                                const targetMarks = Math.round(totalPaperMarks * (m.weightage_percent / 100));
-                                const actualMarks = assignedMarks[m.name] || 0;
-                                const diff = actualMarks - targetMarks;
-                                return (
-                                    <div key={idx} className="bg-background rounded border p-2 text-sm">
-                                        <div className="font-medium truncate" title={m.name}>{m.name}</div>
-                                        <div className="flex justify-between text-xs mt-1">
-                                            <span className="text-muted-foreground">{m.weightage_percent}%</span>
-                                            <span className={`font-semibold ${diff === 0 ? 'text-green-600' : Math.abs(diff) <= 5 ? 'text-yellow-600' : 'text-red-600'}`}>
-                                                {actualMarks} / {targetMarks} m
-                                            </span>
-                                        </div>
-                                        <div className="w-full bg-muted h-1 mt-2 rounded-full overflow-hidden">
-                                            <div
-                                                className={`h-full ${actualMarks >= targetMarks ? 'bg-green-500' : 'bg-primary'}`}
-                                                style={{ width: `${Math.min(targetMarks > 0 ? (actualMarks / targetMarks) * 100 : 0, 100)}%` }}
-                                            />
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
 
-                {/* Sections */}
-                <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Sections</h3>
-
-                    {sections.map((section, sIdx) => (
-                        <div key={section.id} className="border rounded-lg p-4 space-y-4">
-                            <div className="flex items-center justify-between">
-                                <input
-                                    type="text"
-                                    value={section.name}
-                                    onChange={(e) => {
-                                        const updated = [...sections];
-                                        updated[sIdx].name = e.target.value;
-                                        setSections(updated);
-                                    }}
-                                    className="text-lg font-semibold bg-transparent border-0 focus:outline-none"
-                                />
-                                <button
-                                    onClick={() => removeSection(sIdx)}
-                                    className="text-destructive hover:bg-destructive/10 p-2 rounded"
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                </button>
-                            </div>
-
-                            {/* Instruction */}
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Instruction</label>
+                        <div className="p-6">
+                            {/* General Instruction */}
+                            <div className="mb-6">
+                                <label className="block text-[10px] font-bold text-[#64748B] uppercase tracking-widest mb-2">General Instruction</label>
                                 <input
                                     type="text"
                                     value={section.instruction}
@@ -404,235 +435,309 @@ export default function GeneratePage() {
                                         updated[sIdx].instruction = e.target.value;
                                         setSections(updated);
                                     }}
-                                    className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                                    className="w-full bg-[#0A0D14] border border-white/5 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500/50 transition-all text-[#CBD5E1]"
                                 />
                             </div>
 
-                            {/* Bloom Mode Toggle */}
-                            <div>
-                                <label className="block text-sm font-medium mb-2">Bloom Mode</label>
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={() => {
-                                            const updated = [...sections];
-                                            updated[sIdx].bloomMode = "simple";
-                                            setSections(updated);
-                                        }}
-                                        className={`px-4 py-2 rounded-md text-sm ${section.bloomMode === "simple" ? "bg-primary text-primary-foreground" : "bg-secondary"}`}
-                                    >
-                                        Simple (Fuzzy)
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            const updated = [...sections];
-                                            updated[sIdx].bloomMode = "advanced";
-                                            setSections(updated);
-                                        }}
-                                        className={`px-4 py-2 rounded-md text-sm ${section.bloomMode === "advanced" ? "bg-primary text-primary-foreground" : "bg-secondary"}`}
-                                    >
-                                        Advanced (Manual)
-                                    </button>
+                            {/* Bloom Mode & Difficulty */}
+                            <div className="grid md:grid-cols-2 gap-6 mb-8">
+                                <div>
+                                    <label className="block text-[10px] font-bold text-[#64748B] uppercase tracking-widest mb-2">Bloom Mode</label>
+                                    <div className="flex bg-[#0A0D14] border border-white/5 p-1 rounded-xl">
+                                        <button
+                                            onClick={() => {
+                                                const updated = [...sections];
+                                                updated[sIdx].bloomMode = "simple";
+                                                setSections(updated);
+                                            }}
+                                            className={`flex-1 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all ${section.bloomMode === "simple" ? "bg-[#8050f2] text-white shadow-md shadow-indigo-500/20" : "text-[#64748B] hover:text-white"}`}
+                                        >
+                                            Simple / Fuzzy
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                const updated = [...sections];
+                                                updated[sIdx].bloomMode = "advanced";
+                                                setSections(updated);
+                                            }}
+                                            className={`flex-1 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all ${section.bloomMode === "advanced" ? "bg-[#8050f2] text-white shadow-md shadow-indigo-500/20" : "text-[#64748B] hover:text-white"}`}
+                                        >
+                                            Advanced / Manual
+                                        </button>
+                                    </div>
                                 </div>
+                                {section.bloomMode === "simple" && (
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-[#64748B] uppercase tracking-widest mb-2">Difficulty Curve</label>
+                                        <select
+                                            value={section.difficulty}
+                                            onChange={(e) => {
+                                                const updated = [...sections];
+                                                updated[sIdx].difficulty = e.target.value;
+                                                setSections(updated);
+                                            }}
+                                            className="w-full appearance-none bg-[#0A0D14] border border-white/5 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500/50 transition-all text-[#CBD5E1] cursor-pointer"
+                                        >
+                                            {difficulties.map(d => (
+                                                <option key={d} value={d} className="bg-[#0A0D14]">{d === 'easy' ? 'Foundational (Easy)' : d === 'medium' ? 'Moderate (Balanced)' : 'Advanced (Hard)'}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
                             </div>
 
-                            {/* Simple Mode - Difficulty */}
-                            {section.bloomMode === "simple" && (
-                                <div>
-                                    <label className="block text-sm font-medium mb-2">Difficulty</label>
-                                    <select
-                                        value={section.difficulty}
-                                        onChange={(e) => {
-                                            const updated = [...sections];
-                                            updated[sIdx].difficulty = e.target.value;
-                                            setSections(updated);
-                                        }}
-                                        className="w-full px-3 py-2 rounded-md border border-input bg-background"
-                                    >
-                                        {difficulties.map(d => (
-                                            <option key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>
-                                        ))}
-                                    </select>
+                            {/* Questions Table */}
+                            <div>
+                                <div className="grid grid-cols-12 gap-4 pb-3 border-b border-white/5 text-[10px] font-bold text-[#64748B] uppercase tracking-widest mb-4">
+                                    <div className="col-span-2">Q#</div>
+                                    <div className="col-span-4">Bloom ({section.bloomMode === 'simple' ? 'Auto' : 'Manual'})</div>
+                                    {syllabus && <div className="col-span-3">Module</div>}
+                                    <div className={syllabus ? "col-span-2" : "col-span-5"}>Marks</div>
+                                    <div className="col-span-1 text-center">Del</div>
                                 </div>
-                            )}
+                                
+                                <div className="space-y-4">
+                                    {section.questions.map((q, qIdx) => (
+                                        <div key={q.id || qIdx} className="space-y-1">
+                                            {/* Question Row */}
+                                            <div className="grid grid-cols-12 gap-4 items-center group">
+                                                {/* Q Number */}
+                                                <div className="col-span-2 font-semibold text-teal-400 text-sm pl-2">
+                                                    Q{q.number}
+                                                </div>
 
-                            {/* Questions */}
-                            <div className="space-y-2">
-                                <label className="block text-sm font-medium">Questions</label>
-
-                                {section.questions.map((q, qIdx) => (
-                                    <div key={q.id || qIdx}>
-                                        <div className="flex items-center gap-2 p-2 bg-muted/30 rounded flex-wrap">
-                                            <GripVertical className="h-4 w-4 text-muted-foreground" />
-                                            <span className="text-sm">Q{q.number}</span>
-
-                                            {section.bloomMode === "advanced" && (
-                                                <select
-                                                    value={q.bloomLevel}
-                                                    onChange={(e) => {
-                                                        const updated = [...sections];
-                                                        updated[sIdx].questions[qIdx].bloomLevel = e.target.value;
-                                                        setSections(updated);
-                                                    }}
-                                                    className="px-2 py-1 rounded border text-sm"
-                                                >
-                                                    {bloomLevels.map(level => (
-                                                        <option key={level} value={level}>{level.charAt(0).toUpperCase() + level.slice(1)}</option>
-                                                    ))}
-                                                </select>
-                                            )}
-
-                                            {section.bloomMode === "simple" && (
-                                                <span className="px-2 py-1 text-xs bg-primary/10 text-primary rounded">
-                                                    {q.bloomLevel.charAt(0).toUpperCase() + q.bloomLevel.slice(1)}
-                                                </span>
-                                            )}
-
-                                            {syllabus && (
-                                                <select
-                                                    value={q.module || ""}
-                                                    onChange={(e) => {
-                                                        const updated = [...sections];
-                                                        updated[sIdx].questions[qIdx].module = e.target.value;
-                                                        setSections(updated);
-                                                    }}
-                                                    className="px-2 py-1 rounded border text-sm max-w-[140px]"
-                                                >
-                                                    <option value="">Any Module</option>
-                                                    {syllabus.modules.map((m: any, mIdx: number) => (
-                                                        <option key={mIdx} value={m.name}>{m.name}</option>
-                                                    ))}
-                                                </select>
-                                            )}
-
-                                            <input
-                                                type="number"
-                                                value={q.totalMarks}
-                                                onChange={(e) => {
-                                                    const val = parseInt(e.target.value);
-                                                    const updated = [...sections];
-                                                    updated[sIdx].questions[qIdx].totalMarks = isNaN(val) ? 0 : val;
-                                                    setSections(updated);
-                                                }}
-                                                className="w-16 px-2 py-1 rounded border text-sm"
-                                            />
-                                            <span className="text-sm text-muted-foreground">marks</span>
-
-                                            <button
-                                                onClick={() => {
-                                                    const updated = [...sections];
-                                                    const question = updated[sIdx].questions[qIdx];
-                                                    if (question.parts.length === 1 && !question.parts[0].label) {
-                                                        const half = Math.floor(question.totalMarks / 2);
-                                                        question.parts = [
-                                                            { label: "a", marks: half },
-                                                            { label: "b", marks: question.totalMarks - half }
-                                                        ];
-                                                    } else {
-                                                        question.parts = [{ label: "", marks: question.totalMarks }];
-                                                    }
-                                                    setSections(updated);
-                                                }}
-                                                className="text-xs text-muted-foreground hover:text-foreground"
-                                                title={q.parts.length > 1 || q.parts[0]?.label ? "Remove parts" : "Make multi-part"}
-                                            >
-                                                {q.parts.length > 1 || q.parts[0]?.label ? `${q.parts.length} parts` : "+ Parts"}
-                                            </button>
-
-                                            <button
-                                                onClick={() => {
-                                                    const updated = [...sections];
-                                                    updated[sIdx].questions.splice(qIdx, 1);
-                                                    updated[sIdx].questions.forEach((q, i) => { q.number = i + 1; });
-                                                    setSections(updated);
-                                                }}
-                                                className="ml-auto text-destructive/60 hover:text-destructive text-xs"
-                                            >
-                                                ✕
-                                            </button>
-                                        </div>
-
-                                        {/* Multi-Part Configuration */}
-                                        {(q.parts.length > 1 || q.parts[0]?.label) && (
-                                            <div className="ml-8 mt-1 space-y-1 border-l-2 border-primary/20 pl-3">
-                                                {q.parts.map((part, pIdx) => (
-                                                    <div key={pIdx} className="flex items-center gap-2 text-xs">
-                                                        <span className="text-muted-foreground">({part.label})</span>
-                                                        <input
-                                                            type="number"
-                                                            value={part.marks}
+                                                {/* Bloom */}
+                                                <div className="col-span-4">
+                                                    {section.bloomMode === "advanced" ? (
+                                                        <select
+                                                            value={q.bloomLevel}
                                                             onChange={(e) => {
-                                                                const val = parseInt(e.target.value) || 0;
                                                                 const updated = [...sections];
-                                                                updated[sIdx].questions[qIdx].parts[pIdx].marks = val;
-                                                                const totalMarks = updated[sIdx].questions[qIdx].parts.reduce((sum, p) => sum + p.marks, 0);
-                                                                updated[sIdx].questions[qIdx].totalMarks = totalMarks;
+                                                                updated[sIdx].questions[qIdx].bloomLevel = e.target.value;
                                                                 setSections(updated);
                                                             }}
-                                                            className="w-12 px-1 py-0.5 rounded border"
+                                                            className="appearance-none bg-transparent border-none text-[#CBD5E1] text-sm focus:outline-none cursor-pointer w-full italic"
+                                                        >
+                                                            {bloomLevels.map(level => (
+                                                                <option key={level} value={level} className="bg-[#131620] not-italic">{level.charAt(0).toUpperCase() + level.slice(1)}</option>
+                                                            ))}
+                                                        </select>
+                                                    ) : (
+                                                        <div className="flex items-center gap-2 text-[#CBD5E1] text-sm italic">
+                                                            <span className="text-[#64748B]">{getBloomIcon(q.bloomLevel)}</span>
+                                                            {q.bloomLevel.charAt(0).toUpperCase() + q.bloomLevel.slice(1)}ing
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Module selector — only shown when syllabus loaded */}
+                                                {syllabus && (
+                                                    <div className="col-span-3">
+                                                        <select
+                                                            value={q.module || ""}
+                                                            onChange={(e) => {
+                                                                const updated = [...sections];
+                                                                updated[sIdx].questions[qIdx].module = e.target.value || undefined;
+                                                                setSections(updated);
+                                                            }}
+                                                            className="w-full appearance-none bg-[#0A0D14] border border-white/5 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-indigo-500/50 transition-all text-[#CBD5E1] cursor-pointer"
+                                                        >
+                                                            <option value="" className="bg-[#0A0D14]">— none —</option>
+                                                            {syllabus.modules.map((m: any) => (
+                                                                <option key={m.name} value={m.name} className="bg-[#0A0D14]">{m.name}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                )}
+
+                                                {/* Marks */}
+                                                <div className={syllabus ? "col-span-2" : "col-span-3"}>
+                                                    <div className="flex bg-[#0A0D14] border border-white/5 rounded-lg px-3 py-2 w-[80px]">
+                                                        <input
+                                                            type="number"
+                                                            value={q.totalMarks}
+                                                            onChange={(e) => {
+                                                                const val = parseInt(e.target.value);
+                                                                const updated = [...sections];
+                                                                updated[sIdx].questions[qIdx].totalMarks = isNaN(val) ? 0 : val;
+                                                                setSections(updated);
+                                                            }}
+                                                            className="w-full bg-transparent border-none text-center text-sm font-semibold text-white focus:outline-none p-0"
                                                         />
-                                                        <span className="text-muted-foreground">marks</span>
-                                                        {q.parts.length > 2 && (
+                                                    </div>
+                                                </div>
+
+                                                {/* Action */}
+                                                <div className="col-span-1 flex justify-center items-center">
+                                                    <button
+                                                        onClick={() => {
+                                                            const updated = [...sections];
+                                                            updated[sIdx].questions.splice(qIdx, 1);
+                                                            updated[sIdx].questions.forEach((q, i) => { q.number = i + 1; });
+                                                            setSections(updated);
+                                                        }}
+                                                        className="text-[#64748B] hover:text-red-400 transition-colors"
+                                                        title="Remove Question"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Multi-Part Configuration */}
+                                            {(q.parts && (q.parts.length > 1 || q.parts[0]?.label)) ? (
+                                                <div className="pl-14 pr-4 mt-1 mb-2">
+                                                    <div className="bg-[#0f121b] border border-white/5 rounded-xl p-4 space-y-2">
+                                                        {q.parts.map((part, pIdx) => (
+                                                            <div key={pIdx} className="flex items-center gap-4">
+                                                                <span className="text-[#64748B] font-bold text-xs uppercase w-6">({part.label})</span>
+                                                                <div className="flex bg-[#0A0D14] border border-white/5 rounded-lg px-3 py-1.5 w-[70px]">
+                                                                    <input
+                                                                        type="number"
+                                                                        value={part.marks}
+                                                                        onChange={(e) => {
+                                                                            const val = parseInt(e.target.value) || 0;
+                                                                            const updated = [...sections];
+                                                                            updated[sIdx].questions[qIdx].parts[pIdx].marks = val;
+                                                                            const totalMarks = updated[sIdx].questions[qIdx].parts.reduce((sum, p) => sum + p.marks, 0);
+                                                                            updated[sIdx].questions[qIdx].totalMarks = totalMarks;
+                                                                            setSections(updated);
+                                                                        }}
+                                                                        className="w-full bg-transparent border-none text-center text-xs font-semibold text-white focus:outline-none p-0"
+                                                                    />
+                                                                </div>
+                                                                <span className="text-[#64748B] text-xs">marks</span>
+                                                                {q.parts.length > 2 && (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            const updated = [...sections];
+                                                                            updated[sIdx].questions[qIdx].parts.splice(pIdx, 1);
+                                                                            const totalMarks = updated[sIdx].questions[qIdx].parts.reduce((sum, p) => sum + p.marks, 0);
+                                                                            updated[sIdx].questions[qIdx].totalMarks = totalMarks;
+                                                                            setSections(updated);
+                                                                        }}
+                                                                        className="text-red-500/50 hover:text-red-400 ml-auto transition-colors"
+                                                                    >
+                                                                        <Trash2 className="h-3 w-3" />
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                        <div className="pt-2 border-t border-white/5 flex items-center justify-between">
                                                             <button
                                                                 onClick={() => {
                                                                     const updated = [...sections];
-                                                                    updated[sIdx].questions[qIdx].parts.splice(pIdx, 1);
-                                                                    const totalMarks = updated[sIdx].questions[qIdx].parts.reduce((sum, p) => sum + p.marks, 0);
+                                                                    const parts = updated[sIdx].questions[qIdx].parts;
+                                                                    const nextLabel = String.fromCharCode(97 + parts.length);
+                                                                    parts.push({ label: nextLabel, marks: 2 });
+                                                                    const totalMarks = parts.reduce((sum, p) => sum + p.marks, 0);
                                                                     updated[sIdx].questions[qIdx].totalMarks = totalMarks;
                                                                     setSections(updated);
                                                                 }}
-                                                                className="text-destructive/70 hover:text-destructive"
+                                                                className="text-xs font-semibold text-teal-400 hover:text-teal-300 transition-colors flex items-center gap-1"
                                                             >
-                                                                ×
+                                                                <Plus className="h-3 w-3" /> Add sub-part
                                                             </button>
-                                                        )}
+                                                            <button
+                                                                onClick={() => {
+                                                                    const updated = [...sections];
+                                                                    const totalMarks = updated[sIdx].questions[qIdx].parts.reduce((sum, p) => sum + p.marks, 0);
+                                                                    updated[sIdx].questions[qIdx].parts = [{ label: '', marks: totalMarks }];
+                                                                    setSections(updated);
+                                                                }}
+                                                                className="text-[10px] text-[#64748B] hover:text-white transition-colors"
+                                                            >
+                                                                Merge parts
+                                                            </button>
+                                                        </div>
                                                     </div>
-                                                ))}
-                                                <button
-                                                    onClick={() => {
-                                                        const updated = [...sections];
-                                                        const parts = updated[sIdx].questions[qIdx].parts;
-                                                        const nextLabel = String.fromCharCode(97 + parts.length);
-                                                        parts.push({ label: nextLabel, marks: 2 });
-                                                        const totalMarks = parts.reduce((sum, p) => sum + p.marks, 0);
-                                                        updated[sIdx].questions[qIdx].totalMarks = totalMarks;
-                                                        setSections(updated);
-                                                    }}
-                                                    className="text-xs text-primary hover:underline"
-                                                >
-                                                    + Add part
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
+                                                </div>
+                                            ) : (
+                                                <div className="pl-14 mb-2">
+                                                    <button
+                                                        onClick={() => {
+                                                            const updated = [...sections];
+                                                            const question = updated[sIdx].questions[qIdx];
+                                                            const half = Math.floor(question.totalMarks / 2);
+                                                            question.parts = [
+                                                                { label: 'a', marks: half },
+                                                                { label: 'b', marks: question.totalMarks - half }
+                                                            ];
+                                                            setSections(updated);
+                                                        }}
+                                                        className="text-[10px] font-bold text-[#64748B] hover:text-teal-400 transition-colors uppercase tracking-widest flex items-center gap-1"
+                                                    >
+                                                        <Plus className="h-3 w-3" /> Split into parts
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
 
-                                <button
-                                    onClick={() => addQuestion(sIdx)}
-                                    className="text-sm text-primary hover:underline flex items-center gap-1"
-                                >
-                                    <Plus className="h-4 w-4" />
-                                    Add Question
-                                </button>
+                                {/* Add Question Button */}
+                                <div className="mt-6">
+                                    <button
+                                        onClick={() => addQuestion(sIdx)}
+                                        className="text-sm font-semibold text-teal-400 hover:text-teal-300 transition-colors flex items-center gap-2"
+                                    >
+                                        <Plus className="h-4 w-4 bg-teal-400/20 rounded-full" />
+                                        Add Question
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                    ))}
+                    </div>
+                ))}
 
-                    <button
-                        onClick={addSection}
-                        className="w-full border-2 border-dashed border-muted rounded-lg p-4 text-muted-foreground hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2"
-                    >
+                {/* Add New Section (Dashed) */}
+                <button
+                    onClick={addSection}
+                    className="w-full border-2 border-dashed border-white/10 hover:border-white/20 bg-transparent rounded-2xl p-6 text-[#64748B] hover:text-[#94A3B8] font-bold text-xs uppercase tracking-widest transition-all flex flex-col items-center justify-center gap-3 mt-8"
+                >
+                    <div className="bg-[#1E2335] p-1 rounded text-white">
                         <Plus className="h-5 w-5" />
-                        Add Section
-                    </button>
+                    </div>
+                    ADD NEW SECTION
+                </button>
+            </div>
+
+            <div className="h-px bg-white/5 w-full my-8"></div>
+
+            {/* Bottom Footer Actions */}
+            <div className="flex sm:flex-row flex-col items-center justify-between gap-6 mb-12">
+                <div className="flex flex-col gap-2 w-full sm:w-64">
+                    <div className="flex justify-between text-xs font-semibold text-[#64748B]">
+                        <span>Estimated Quality Score</span>
+                        <span className="text-teal-400 font-bold">85%</span>
+                    </div>
+                    <div className="w-full bg-[#131620] h-2 rounded-full overflow-hidden">
+                        <div className="bg-teal-400 h-full w-[85%] rounded-full shadow-[0_0_10px_rgba(45,212,191,0.5)]"></div>
+                    </div>
                 </div>
 
-                <button
-                    onClick={generatePaper}
-                    disabled={isGenerating}
-                    className="w-full bg-primary text-primary-foreground hover:bg-primary/90 py-3 rounded-md font-medium disabled:opacity-50"
-                >
-                    {isGenerating ? "Generating..." : "Generate Paper →"}
-                </button>
+                <div className="flex items-center gap-4 w-full sm:w-auto">
+                    <button className="flex-1 sm:flex-none border border-white/10 hover:bg-white/5 text-white text-sm font-semibold px-6 py-3 rounded-xl transition-colors">
+                        Save as Draft
+                    </button>
+                    <button
+                        onClick={generatePaper}
+                        disabled={isGenerating}
+                        className="flex-1 sm:flex-none bg-[#2f35bd] hover:bg-[#3942d9] text-white text-sm font-semibold px-6 py-3 rounded-xl transition-all shadow-[0_0_20px_rgba(47,53,189,0.3)] flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                        {isGenerating ? (
+                            <>
+                                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                                Generating...
+                            </>
+                        ) : (
+                            <>
+                                <Wand2 className="h-4 w-4" />
+                                Generate Paper
+                            </>
+                        )}
+                    </button>
+                </div>
             </div>
 
             {/* Generated Paper Preview with Draggable Qs */}

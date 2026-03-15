@@ -15,13 +15,17 @@ def _parse_syllabus_with_llm(text: str) -> Optional[list]:
     """Uses LLM to extract modules, topics, and weightage percentage as a structured JSON array."""
     
     system_prompt = '''You are an expert academic assistant. Your task is to extract syllabus modules, their topics, and their weightage (or marks) from the provided syllabus text.
-    
+
+    IMPORTANT: The text was extracted via OCR and may contain digit misreads (e.g., "2" read as "9", "1" as "l", etc.). 
+    - Number the modules sequentially (Module 1, Module 2, Module 3...) in the order they appear in the text. DO NOT trust the digit from the OCR text if it looks out of sequence.
+    - Clean up any garbled characters in the module name.
+
     You MUST output ONLY a valid JSON array of objects. Do not include any markdown formatting, explanations, or greeting.
     Each object in the array must have the following exact keys:
-    - "name": (string) The name or number of the module (e.g., "Module 1", "Unit I").
+    - "name": (string) The module name numbered sequentially, e.g. "Module 1", "Module 2". Use sequential order, not whatever digit OCR extracted.
     - "topics": (string) A concise summary of the topics covered in this module.
     - "weightage_percent": (number) The relative weightage or marks of this module as an integer percentage (e.g., 20). If only raw marks are provided, convert them to an estimated percentage so the total across all modules is roughly 100. If no weightage or marks are mentioned at all for a module, estimate it to be equal to others so the total is 100.
-    
+
     Example output format:
     [
         {"name": "Module 1", "topics": "Introduction, concepts, definitions", "weightage_percent": 20},
