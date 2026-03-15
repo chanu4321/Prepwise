@@ -12,9 +12,16 @@ def get_db_connection():
         raise ValueError("DATABASE_URL is not set in .env")
     return psycopg2.connect(conn_str)
 
-# Qdrant (Local)
-# Assuming Qdrant is running on default port 6333
-qdrant_client = QdrantClient(host="localhost", port=6333)
+# Qdrant Client
+qdrant_url = os.getenv("QDRANT_URL")
+qdrant_api_key = os.getenv("QDRANT_API_KEY")
+
+if qdrant_url and qdrant_api_key:
+    qdrant_client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
+elif qdrant_url:
+    qdrant_client = QdrantClient(url=qdrant_url)
+else:
+    qdrant_client = QdrantClient(host="localhost", port=6333)
 
 def init_db():
     """Initializes tables in PostgreSQL."""
