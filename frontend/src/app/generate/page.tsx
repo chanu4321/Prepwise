@@ -68,6 +68,7 @@ const difficulties = ["easy", "medium", "hard"];
 
 export default function GeneratePage() {
     const [subject, setSubject] = useState("Software Project Management");
+    const [subjectCode, setSubjectCode] = useState("");
     const [duration, setDuration] = useState(180);
     const [sections, setSections] = useState<Section[]>([
         {
@@ -96,10 +97,10 @@ export default function GeneratePage() {
     const [isFetchingSyllabus, setIsFetchingSyllabus] = useState(false);
 
     const fetchSyllabus = async () => {
-        if (!subject) return;
+        if (!subjectCode.trim()) return;
         setIsFetchingSyllabus(true);
         try {
-            const res = await fetch(`http://localhost:8000/api/v1/syllabus/${subject}`);
+            const res = await fetch(`http://localhost:8000/api/v1/syllabus/${subjectCode.trim()}`);
             if (res.ok) {
                 const data = await res.json();
                 setSyllabus(data.data);
@@ -116,7 +117,7 @@ export default function GeneratePage() {
     useEffect(() => {
         const timer = setTimeout(() => { fetchSyllabus(); }, 800);
         return () => clearTimeout(timer);
-    }, [subject]);
+    }, [subjectCode]);
 
     const assignedMarks = sections.reduce((acc, section) => {
         section.questions.forEach(q => {
@@ -309,17 +310,29 @@ export default function GeneratePage() {
             </div>
 
             {/* Inputs Row */}
-            <div className="grid md:grid-cols-3 gap-6 mb-10">
+            <div className="grid md:grid-cols-4 gap-6 mb-10">
                 <div>
-                    <label className="block text-[11px] font-bold text-[#64748B] uppercase tracking-wider mb-2">Subject Code</label>
+                    <label className="block text-[11px] font-bold text-[#64748B] uppercase tracking-wider mb-2">Subject Name</label>
                     <input
                         type="text"
                         value={subject}
                         onChange={(e) => setSubject(e.target.value)}
-                        placeholder="e.g. CS101"
+                        placeholder="e.g. Data Structures"
+                        className="w-full bg-[#131620] border border-white/5 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all text-white font-medium"
+                    />
+                </div>
+                <div>
+                    <label className="block text-[11px] font-bold text-[#64748B] uppercase tracking-wider mb-2">Subject Code</label>
+                    <input
+                        type="text"
+                        value={subjectCode}
+                        onChange={(e) => setSubjectCode(e.target.value)}
+                        placeholder="e.g. CSE432"
                         className="w-full bg-[#131620] border border-white/5 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all text-white font-medium"
                     />
                     {isFetchingSyllabus && <span className="text-xs text-indigo-400 mt-1 block">Fetching syllabus...</span>}
+                    {!isFetchingSyllabus && subjectCode && syllabus && <span className="text-xs text-emerald-400 mt-1 block">✓ Syllabus loaded</span>}
+                    {!isFetchingSyllabus && subjectCode && !syllabus && <span className="text-xs text-[#64748B] mt-1 block">No syllabus found</span>}
                 </div>
                 <div>
                     <label className="block text-[11px] font-bold text-[#64748B] uppercase tracking-wider mb-2">Duration (mins)</label>
@@ -492,8 +505,7 @@ export default function GeneratePage() {
                                     <div className="col-span-2">Q#</div>
                                     <div className="col-span-4">Bloom ({section.bloomMode === 'simple' ? 'Auto' : 'Manual'})</div>
                                     {syllabus && <div className="col-span-3">Module</div>}
-                                    <div className={syllabus ? "col-span-2" : "col-span-5"}>Marks</div>
-                                    <div className="col-span-1 text-center">Del</div>
+                                    <div className={syllabus ? "col-span-3" : "col-span-6"}>Marks</div>
                                 </div>
                                 
                                 <div className="space-y-4">
@@ -550,9 +562,9 @@ export default function GeneratePage() {
                                                     </div>
                                                 )}
 
-                                                {/* Marks */}
-                                                <div className={syllabus ? "col-span-2" : "col-span-3"}>
-                                                    <div className="flex bg-[#0A0D14] border border-white/5 rounded-lg px-3 py-2 w-[80px]">
+                                                {/* Marks + Delete grouped together */}
+                                                <div className={`${syllabus ? 'col-span-3' : 'col-span-6'} flex items-center gap-3`}>
+                                                    <div className="flex bg-[#0A0D14] border border-white/5 rounded-lg px-3 py-2 w-[72px]">
                                                         <input
                                                             type="number"
                                                             value={q.totalMarks}
@@ -565,10 +577,6 @@ export default function GeneratePage() {
                                                             className="w-full bg-transparent border-none text-center text-sm font-semibold text-white focus:outline-none p-0"
                                                         />
                                                     </div>
-                                                </div>
-
-                                                {/* Action */}
-                                                <div className="col-span-1 flex justify-center items-center">
                                                     <button
                                                         onClick={() => {
                                                             const updated = [...sections];
