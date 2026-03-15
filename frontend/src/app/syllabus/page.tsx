@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import { CloudUpload, X, CheckCircle, Loader2, BookOpen, ChevronRight, FileText } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, API_BASE_URL } from "@/lib/utils";
 
 type ProcessState = "idle" | "uploading" | "success" | "error";
 
@@ -53,7 +53,7 @@ export default function SyllabusUploadPage() {
         formData.append("subject_code", subjectCode);
         formData.append("subject_name", subjectName);
 
-        fetch("http://localhost:8000/api/v1/syllabus/upload", {
+        fetch(`${API_BASE_URL}/api/v1/syllabus/upload`, {
             method: "POST",
             body: formData,
         })

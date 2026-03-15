@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import { API_BASE_URL } from "@/lib/utils";
 import { CloudUpload, X, FileText, CheckCircle, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -55,7 +56,7 @@ export default function UploadPage() {
             const formData = new FormData();
             formData.append("file", task.file);
 
-            fetch("http://localhost:8000/api/v1/documents/ingest", {
+            fetch(`${API_BASE_URL}/api/v1/documents/ingest`, {
                 method: "POST",
                 body: formData,
             })

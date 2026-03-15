@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Clock, Loader2, Search, Download, Eye, CheckCircle2, ChevronDown } from "lucide-react";
+import { API_BASE_URL } from "@/lib/utils";
 
 interface Paper {
     id: number;
@@ -37,11 +38,11 @@ function PapersContent() {
     const fetchPapers = async () => {
         setIsLoading(true);
         try {
-            let url = "http://localhost:8000/api/v1/documents";
+            let url = `${API_BASE_URL}/api/v1/documents`;
             let options: RequestInit = { method: "GET" };
 
             if (searchQuery) {
-                url = "http://localhost:8000/api/v1/search/semantic";
+                url = `${API_BASE_URL}/api/v1/search/semantic`;
                 options = {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -241,7 +242,7 @@ function PapersContent() {
                                 <button
                                     onClick={(e) => {
                                         e.preventDefault();
-                                        window.open(`http://localhost:8000/api/v1/documents/${paper.id}/download`, '_blank');
+                                        window.open(`${API_BASE_URL}/api/v1/documents/${paper.id}/download`, '_blank');
                                     }}
                                     className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 text-sm font-semibold transition-all shadow-md shadow-indigo-600/20 hover:shadow-indigo-600/40"
                                 >
@@ -251,7 +252,7 @@ function PapersContent() {
                                 <button
                                     onClick={(e) => {
                                         e.preventDefault();
-                                        window.open(`http://localhost:8000/api/v1/documents/${paper.id}/download`, '_blank');
+                                        window.open(`${API_BASE_URL}/api/v1/documents/${paper.id}/download`, '_blank');
                                     }}
                                     className="flex items-center justify-center rounded-xl border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 px-4 py-2.5 transition-all text-muted-foreground hover:text-foreground"
                                     title="Download PDF"

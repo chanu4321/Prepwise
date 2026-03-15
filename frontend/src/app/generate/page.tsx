@@ -19,6 +19,7 @@ import {
 import { QuestionItem } from '@/components/QuestionItem';
 import { useState, useEffect } from "react";
 import { BookOpen, Plus, Trash2, GripVertical, ListFilter, MoreVertical, Sparkles, Brain, Search, PenTool, GitMerge, Target, Wand2 } from "lucide-react";
+import { API_BASE_URL } from "@/lib/utils";
 
 const getBloomIcon = (level: string) => {
     switch (level.toLowerCase()) {
@@ -100,7 +101,7 @@ export default function GeneratePage() {
         if (!subjectCode.trim()) return;
         setIsFetchingSyllabus(true);
         try {
-            const res = await fetch(`http://localhost:8000/api/v1/syllabus/${subjectCode.trim()}`);
+            const res = await fetch(`${API_BASE_URL}/api/v1/syllabus/${subjectCode.trim()}`);
             if (res.ok) {
                 const data = await res.json();
                 setSyllabus(data.data);
@@ -207,7 +208,7 @@ export default function GeneratePage() {
         setIsGenerating(true);
         try {
             const sectionsWithPool = sections.map(s => ({ ...s, generate_pool: true }));
-            const response = await fetch("http://localhost:8000/api/v1/generate/mock-paper", {
+            const response = await fetch(`${API_BASE_URL}/api/v1/generate/mock-paper`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ subject, sections: sectionsWithPool })
