@@ -7,8 +7,8 @@ from backend.database import get_db_connection
 logger = logging.getLogger(__name__)
 
 # Ollama configuration
-OLLAMA_URL = "http://127.0.0.1:11434/api/generate"
-GENERATION_MODEL = "qwen2.5:3b"
+# OLLAMA_URL = "http://127.0.0.1:11434/api/generate"
+# GENERATION_MODEL = "qwen2.5:3b"
 
 # Bloom's Taxonomy action verbs
 BLOOM_VERBS = {
@@ -192,40 +192,48 @@ class RAGService:
             subject, bloom_level, total_marks, parts, context, module
         )
         
-        # Call Ollama Chat API
+        # Call LLM API
         try:
+            import os
             # Separate context from prompt for better handling
             system_instruction = f"You are an expert exam question generator for {subject}. Generate a single examination question based on the user's requirements."
             
             chat_payload = {
-                "model": GENERATION_MODEL,
+                "model": os.getenv("LLM_MODEL", "qwen/qwen3-next-80b-a3b-thinking"),
                 "messages": [
                     {"role": "system", "content": system_instruction},
                     {"role": "user", "content": prompt}
                 ],
-                "stream": False,
-                "options": {"temperature": 0.7}
+                "temperature": 0.7
             }
             
+            headers = {
+                "Authorization": f"Bearer {os.getenv('NVIDIA_API_KEY', '')}",
+                "Content-Type": "application/json"
+            }
+            
+            api_url = os.getenv("LLM_API_URL", "https://integrate.api.nvidia.com/v1/chat/completions")
+            
             response = requests.post(
-                "http://127.0.0.1:11434/api/chat",
+                api_url,
+                headers=headers,
                 json=chat_payload,
-                timeout=45  # Increased timeout slightly
+                timeout=60
             )
             
             if response.status_code == 200:
                 response_json = response.json()
-                # Handle chat response structure
-                generated_text = response_json.get("message", {}).get("content", "")
+                # Handle standard OpenAI-compatible chat response structure
+                generated_text = response_json.get("choices", [{}])[0].get("message", {}).get("content", "")
                 
-                # Fallback to old structure if message/content missing (unlikely)
+                # Fallback to old structure if missing
                 if not generated_text:
-                     generated_text = response_json.get("response", "")
+                     generated_text = response_json.get("message", {}).get("content", "") or response_json.get("response", "")
                      
-                logger.info(f"DEBUG: Ollama Raw Response for Q{q_config.get('number')}: {generated_text[:100]}...")
+                logger.info(f"DEBUG: LLM Raw Response for Q{q_config.get('number')}: {generated_text[:100]}...")
                 
                 if not generated_text.strip():
-                    logger.warning("Empty response received from Ollama")
+                    logger.warning("Empty response received from LLM")
                     return self._fallback_question(q_config)
 
                 # Post-processing to clean up the question

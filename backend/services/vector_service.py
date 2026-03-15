@@ -7,10 +7,11 @@ from backend.database import qdrant_client
 logger = logging.getLogger(__name__)
 
 # Constants
-OLLAMA_URL = "http://127.0.0.1:11434/api/embeddings"
-EMBEDDING_MODEL = "nomic-embed-text"
+# OLLAMA_URL = "http://127.0.0.1:11434/api/embeddings"
+# EMBEDDING_MODEL = "nomic-embed-text"
 COLLECTION_NAME = "papers"
-VECTOR_SIZE = 768  # nomic-embed-text dimension
+VECTOR_SIZE = 4096  # nv-embed-v1 dimension size
+
 
 class VectorService:
     def __init__(self):
@@ -36,16 +37,24 @@ class VectorService:
             logger.error(f"Failed to check/create Qdrant collection: {e}")
 
     def get_embedding(self, text: str):
-        """Generates embedding vector using Ollama."""
+        """Generates embedding vector using API."""
+        import os
+        api_url = os.getenv("EMBEDDING_API_URL", "https://integrate.api.nvidia.com/v1/embeddings")
+        headers = {
+            "Authorization": f"Bearer {os.getenv('NVIDIA_EMBED_API_KEY', '')}",
+            "Content-Type": "application/json"
+        }
         try:
-            response = requests.post(OLLAMA_URL, json={
-                "model": EMBEDDING_MODEL,
-                "prompt": text
-            })
+            response = requests.post(api_url, headers=headers, json={
+                "model": os.getenv("EMBEDDING_MODEL", "nvidia/nv-embed-v1"),
+                "input": text,
+                "input_type": "passage"
+            }, timeout=30)
             if response.status_code == 200:
-                return response.json().get("embedding")
+                data = response.json()
+                return data.get("data", [{}])[0].get("embedding", [])
             else:
-                logger.error(f"Ollama Embedding Error: {response.text}")
+                logger.error(f"Embedding API Error: {response.text}")
                 return None
         except Exception as e:
             logger.error(f"Embedding generation failed: {e}")

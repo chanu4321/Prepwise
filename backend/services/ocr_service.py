@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Constants
-OLLAMA_URL = "http://127.0.0.1:11434/api/generate"
+# OLLAMA_URL = "http://127.0.0.1:11434/api/generate"
 STOP_KEYWORDS = ["SECTION-A", "Section A", "SECTION - A", "Section-A", "attempt", "Attempt", "ATTEMPT"]
 
 class DocumentProcessor:
@@ -49,20 +49,33 @@ class DocumentProcessor:
         )
         
         data = {
-            "model": "qwen2.5:3b", 
-            "prompt": prompt,
-            "format": "json",
-            "stream": False
+            "model": os.getenv("LLM_MODEL", "qwen/qwen3-next-80b-a3b-thinking"),
+            "messages": [
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": 0.1
         }
+        
+        headers = {
+            "Authorization": f"Bearer {os.getenv('NVIDIA_API_KEY', '')}",
+            "Content-Type": "application/json"
+        }
+        api_url = os.getenv("LLM_API_URL", "https://integrate.api.nvidia.com/v1/chat/completions")
 
         try:
-            response = requests.post(OLLAMA_URL, json=data)
+            response = requests.post(api_url, headers=headers, json=data, timeout=60)
             if response.status_code == 200:
-                raw_response = json.loads(response.content).get("response", "")
+                resp_json = response.json()
+                raw_response = resp_json.get("choices", [{}])[0].get("message", {}).get("content", "")
+                
+                # fallback parsing
+                if not raw_response:
+                    raw_response = resp_json.get("response", "")
+                    
                 clean_response = self.clean_json(raw_response)
                 return json.loads(clean_response)
             else:
-                logger.error(f"Ollama API Error: {response.status_code}")
+                logger.error(f"LLM API Error: {response.status_code} - {response.text}")
                 return None
         except Exception as e:
             logger.error(f"Failed to connect to Ollama or parse JSON: {e}")

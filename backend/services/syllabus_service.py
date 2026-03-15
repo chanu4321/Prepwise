@@ -8,8 +8,8 @@ from backend.database import get_db_connection
 
 logger = logging.getLogger(__name__)
 
-OLLAMA_URL = "http://localhost:11434/api/chat"
-OLLAMA_MODEL = "qwen2.5:3b"
+# OLLAMA_URL = "http://localhost:11434/api/chat"
+# OLLAMA_MODEL = "qwen2.5:3b"
 
 def _parse_syllabus_with_llm(text: str) -> Optional[list]:
     """Uses LLM to extract modules, topics, and weightage percentage as a structured JSON array."""
@@ -33,22 +33,31 @@ def _parse_syllabus_with_llm(text: str) -> Optional[list]:
     ]
     '''
     
+    api_url = os.getenv("LLM_API_URL", "https://integrate.api.nvidia.com/v1/chat/completions")
+    headers = {
+        "Authorization": f"Bearer {os.getenv('NVIDIA_API_KEY', '')}",
+        "Content-Type": "application/json"
+    }
+    
     payload = {
-        "model": OLLAMA_MODEL,
+        "model": os.getenv("LLM_MODEL", "qwen/qwen3-next-80b-a3b-thinking"),
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": f"Extract the module breakdown from this syllabus text:\n\n{text}"}
         ],
-        "temperature": 0.1,
-        "stream": False
+        "temperature": 0.1
     }
 
     try:
-        response = requests.post(OLLAMA_URL, json=payload, timeout=60)
+        response = requests.post(api_url, headers=headers, json=payload, timeout=60)
         response.raise_for_status()
         result = response.json()
         
-        content = result.get('message', {}).get('content', '').strip()
+        content = result.get('choices', [{}])[0].get('message', {}).get('content', '').strip()
+        
+        # Fallback
+        if not content:
+            content = result.get('message', {}).get('content', '').strip()
         
         # Clean up potential markdown code blocks
         if content.startswith('```json'):
