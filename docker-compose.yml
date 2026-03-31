@@ -20,3 +20,8 @@ services:
       QDRANT_API_KEY: ${QDRANT_API_KEY}
       # ─── Port ───────────────────────────────────────
       PORT: 8000
+    volumes:
+      - ./papers:/app/backend/papers
+
+volumes: {}
+
