@@ -1,0 +1,22 @@
+services:
+  backend:
+    image: ghcr.io/chanu4321/prepwise-backend:latest
+    container_name: prepwise-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # ─── Database ───────────────────────────────────
+      DATABASE_URL: ${DATABASE_URL}
+      # ─── NVIDIA LLM APIs ────────────────────────────
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY}
+      NVIDIA_EMBED_API_KEY: ${NVIDIA_EMBED_API_KEY}
+      LLM_API_URL: ${LLM_API_URL}
+      LLM_MODEL: ${LLM_MODEL}
+      EMBEDDING_API_URL: ${EMBEDDING_API_URL}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL}
+      # ─── Qdrant ─────────────────────────────────────
+      QDRANT_URL: ${QDRANT_URL}
+      QDRANT_API_KEY: ${QDRANT_API_KEY}
+      # ─── Port ───────────────────────────────────────
+      PORT: 8000
