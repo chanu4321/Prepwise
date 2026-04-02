@@ -39,14 +39,14 @@ class VectorService:
     def get_embedding(self, text: str):
         """Generates embedding vector using API."""
         import os
-        api_url = os.getenv("EMBEDDING_API_URL", "https://integrate.api.nvidia.com/v1/embeddings")
+        api_url = os.getenv("EMBEDDING_API_URL") or "https://integrate.api.nvidia.com/v1/embeddings"
         headers = {
             "Authorization": f"Bearer {os.getenv('NVIDIA_EMBED_API_KEY', '')}",
             "Content-Type": "application/json"
         }
         try:
             response = requests.post(api_url, headers=headers, json={
-                "model": os.getenv("EMBEDDING_MODEL", "nvidia/nv-embed-v1"),
+                "model": os.getenv("EMBEDDING_MODEL") or "nvidia/nv-embed-v1",
                 "input": text,
                 "input_type": "passage"
             }, timeout=30)
