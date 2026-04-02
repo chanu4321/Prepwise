@@ -49,7 +49,7 @@ class DocumentProcessor:
         )
         
         data = {
-            "model": os.getenv("LLM_MODEL", "qwen/qwen3-next-80b-a3b-thinking"),
+            "model": os.getenv("LLM_MODEL") or "qwen/qwen3-next-80b-a3b-thinking",
             "messages": [
                 {"role": "user", "content": prompt}
             ],
