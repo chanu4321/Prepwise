@@ -1,24 +1,27 @@
+name: prepwise
 services:
   backend:
-    image: ghcr.io/chanu4321/prepwise-backend:latest
     container_name: prepwise-backend
-    restart: unless-stopped
-    ports:
-      - "8000:8000"
     environment:
-      # ─── Database ───────────────────────────────────
-      DATABASE_URL: ${DATABASE_URL}
-      # ─── NVIDIA LLM APIs ────────────────────────────
-      NVIDIA_API_KEY: ${NVIDIA_API_KEY}
-      NVIDIA_EMBED_API_KEY: ${NVIDIA_EMBED_API_KEY}
-      LLM_API_URL: ${LLM_API_URL:-https://integrate.api.nvidia.com/v1/chat/completions}
-      # ─── Qdrant ─────────────────────────────────────
-      QDRANT_URL: ${QDRANT_URL}
-      QDRANT_API_KEY: ${QDRANT_API_KEY}
-      # ─── Port ───────────────────────────────────────
-      PORT: 8000
+      DATABASE_URL: postgresql://neondb_owner:npg_R2yNv8HjTCUY@ep-long-heart-a1fo5az1-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+      LLM_API_URL: https://integrate.api.nvidia.com/v1/chat/completions
+      NVIDIA_API_KEY: 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
+      NVIDIA_EMBED_API_KEY: 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
+      PORT: "8000"
+      QDRANT_API_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIn0.rv8vVo48QrknqHLD3Jay4y0qOgMOdx0N9ffV5vMcvwg
+      QDRANT_URL: https://9774e0c0-4059-4592-b5d8-7ad83c828f54.europe-west3-0.gcp.cloud.qdrant.io:6333
+    hostname: prepwise
+    image: ghcr.io/chanu4321/prepwise-backend:latest
+    networks:
+      default: null
+    restart: unless-stopped
     volumes:
-      - ./papers:/app/backend/papers
-
-volumes: {}
-
+      - type: bind
+        source: /home/chanu4321/projects/prepwise/papers
+        target: /app/backend/papers
+        bind:
+          create_host_path: true
+networks:
+  default:
+    name: nginx-network
+    external: true
