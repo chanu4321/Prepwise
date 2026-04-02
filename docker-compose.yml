@@ -11,10 +11,7 @@ services:
       # ─── NVIDIA LLM APIs ────────────────────────────
       NVIDIA_API_KEY: ${NVIDIA_API_KEY}
       NVIDIA_EMBED_API_KEY: ${NVIDIA_EMBED_API_KEY}
-      LLM_API_URL: ${LLM_API_URL}
-      LLM_MODEL: ${LLM_MODEL}
-      EMBEDDING_API_URL: ${EMBEDDING_API_URL}
-      EMBEDDING_MODEL: ${EMBEDDING_MODEL}
+      LLM_API_URL: ${LLM_API_URL:-https://integrate.api.nvidia.com/v1/chat/completions}
       # ─── Qdrant ─────────────────────────────────────
       QDRANT_URL: ${QDRANT_URL}
       QDRANT_API_KEY: ${QDRANT_API_KEY}
