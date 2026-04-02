@@ -199,7 +199,7 @@ class RAGService:
             system_instruction = f"You are an expert exam question generator for {subject}. Generate a single examination question based on the user's requirements."
             
             chat_payload = {
-                "model": os.getenv("LLM_MODEL", "qwen/qwen3-next-80b-a3b-thinking"),
+                "model": os.getenv("LLM_MODEL") or "qwen/qwen3-next-80b-a3b-thinking",
                 "messages": [
                     {"role": "user", "content": f"{system_instruction}\n\nTask: {prompt}"}
                 ],

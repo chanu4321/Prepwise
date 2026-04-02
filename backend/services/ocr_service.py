@@ -63,7 +63,7 @@ class DocumentProcessor:
         api_url = os.getenv("LLM_API_URL", "https://integrate.api.nvidia.com/v1/chat/completions")
 
         try:
-            response = requests.post(api_url, headers=headers, json=data, timeout=60)
+            response = requests.post(api_url, headers=headers, json=data, timeout=90)
             if response.status_code == 200:
                 resp_json = response.json()
                 raw_response = resp_json.get("choices", [{}])[0].get("message", {}).get("content", "")
