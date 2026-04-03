@@ -3,13 +3,13 @@ services:
   backend:
     container_name: prepwise-backend
     environment:
-      DATABASE_URL: postgresql://neondb_owner:npg_R2yNv8HjTCUY@ep-long-heart-a1fo5az1-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
-      LLM_API_URL: https://integrate.api.nvidia.com/v1/chat/completions
-      NVIDIA_API_KEY: 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
-      NVIDIA_EMBED_API_KEY: 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
+      DATABASE_URL: ${DATABASE_URL}
+      LLM_API_URL: ${LLLM_API_URL}
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY}
+      NVIDIA_EMBED_API_KEY: ${NVIDIA_EMBED_API_KEY}
       PORT: "8000"
-      QDRANT_API_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIn0.rv8vVo48QrknqHLD3Jay4y0qOgMOdx0N9ffV5vMcvwg
-      QDRANT_URL: https://9774e0c0-4059-4592-b5d8-7ad83c828f54.europe-west3-0.gcp.cloud.qdrant.io:6333
+      QDRANT_API_KEY: ${QDRANT_API_KEY}
+      QDRANT_URL: ${QDRANT_URL}
     hostname: prepwise
     image: ghcr.io/chanu4321/prepwise-backend:latest
     networks:
