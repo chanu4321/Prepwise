@@ -114,54 +114,169 @@ class RAGService:
         return "\n".join(context_parts)
     
     def _generate_section(self, section: Dict, context: str, subject: str) -> Dict:
-        """Generate questions for a single section."""
+        """Generate ALL questions for a section in a single batched LLM call."""
+        import os, json, math, copy
         section_name = section.get("name", "Section")
         questions_config = section.get("questions", [])
         bloom_mode = section.get("bloomMode", "simple")
         generate_pool = section.get("generate_pool", False)
-        
+
         # Calculate Bloom distribution
         if bloom_mode == "simple":
             difficulty = section.get("difficulty", "medium")
             bloom_dist = self._get_fuzzy_bloom_distribution(difficulty)
         else:
             bloom_dist = section.get("bloomDistribution", {})
-        
-        generated_questions = []
-        pool_questions = []
-        
-        # 1. Generate the core requested questions
-        for q_config in questions_config:
-            question = self._generate_question(q_config, context, subject, bloom_dist)
-            generated_questions.append(question)
-            
-        # 2. Generate extra pool questions if requested
+
+        # Build pool configs (50% extra)
+        pool_configs = []
         if generate_pool and questions_config:
-            import math
-            import copy
-            
-            # Calculate 50% more questions (at least 1 if any exist)
             pool_count = math.ceil(len(questions_config) * 0.5)
-            
-            # For pool questions, we cycle through the configs or pick random ones
-            # For MVP: simple cycling
             for i in range(pool_count):
-                config_idx = i % len(questions_config)
-                base_config = copy.deepcopy(questions_config[config_idx])
-                
-                # Update number for pool questions (temporary)
-                base_config["number"] = len(generated_questions) + len(pool_questions) + 1
-                
-                pool_q = self._generate_question(base_config, context, subject, bloom_dist)
-                pool_questions.append(pool_q)
-        
-        return {
-            "name": section_name,
-            "instruction": section.get("instruction", ""),
-            "questions": generated_questions,
-            "pool": pool_questions
-        }
-    
+                base = copy.deepcopy(questions_config[i % len(questions_config)])
+                base["number"] = len(questions_config) + i + 1
+                base["_is_pool"] = True
+                pool_configs.append(base)
+
+        all_configs = questions_config + pool_configs
+
+        if not all_configs:
+            return {"name": section_name, "instruction": section.get("instruction", ""), "questions": [], "pool": []}
+
+        # Build a single prompt describing ALL questions to generate
+        question_specs = []
+        for idx, qc in enumerate(all_configs):
+            bloom_level = qc.get("bloomLevel", "understand")
+            total_marks = qc.get("totalMarks", 6)
+            parts = qc.get("parts", [])
+            module = qc.get("module", "")
+            verbs = BLOOM_VERBS.get(bloom_level, ["Explain"])
+
+            if parts:
+                parts_desc = ", ".join([f"Part {p.get('label','?')} ({p.get('marks',0)} marks)" for p in parts])
+                spec = f"Q{idx+1}: Bloom={bloom_level.upper()} | Marks={total_marks} | Parts: {parts_desc} | Use verb from: {verbs[:3]}"
+            else:
+                spec = f"Q{idx+1}: Bloom={bloom_level.upper()} | Marks={total_marks} | Single question | Use verb from: {verbs[:3]}"
+
+            if module:
+                spec += f" | Topic: {module}"
+            question_specs.append(spec)
+
+        specs_text = "\n".join(question_specs)
+        context_excerpt = context[:3000]
+
+        batch_prompt = f"""You are an expert exam question generator for {subject}.
+
+Generate {len(all_configs)} examination questions based on the specifications below. Use the past paper context for style and topic guidance.
+
+PAST PAPER CONTEXT:
+{context_excerpt}
+
+QUESTION SPECIFICATIONS:
+{specs_text}
+
+RULES:
+- Output ONLY a valid JSON array. No explanation, no markdown, no preamble.
+- Each element must have: "number" (int), "text" (string, the full question), "bloomLevel" (string), "totalMarks" (int), "parts" (array of objects with "label" and "text" if multi-part, else empty array)
+- For multi-part questions, split the question text into parts in the "parts" array.
+- Questions must be specific, exam-ready, and match the marks allocated.
+
+OUTPUT FORMAT:
+[
+  {{"number": 1, "text": "Full question text here.", "bloomLevel": "remember", "totalMarks": 2, "parts": []}},
+  {{"number": 2, "text": "...", "bloomLevel": "understand", "totalMarks": 6, "parts": [{{"label": "a", "text": "Part a text (3 marks)"}}, {{"label": "b", "text": "Part b text (3 marks)"}}]}}
+]"""
+
+        try:
+            api_url = os.getenv("LLM_API_URL", "https://integrate.api.nvidia.com/v1/chat/completions")
+            headers = {
+                "Authorization": f"Bearer {os.getenv('NVIDIA_API_KEY', '')}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "model": os.getenv("LLM_MODEL") or "qwen/qwen3-next-80b-a3b-thinking",
+                "messages": [{"role": "user", "content": batch_prompt}],
+                "temperature": 0.6,
+                "top_p": 0.7,
+                "max_tokens": 16384
+            }
+
+            response = requests.post(api_url, headers=headers, json=payload, timeout=300)
+
+            if response.status_code != 200:
+                logger.error(f"Batch LLM error: {response.status_code} - {response.text}")
+                raise Exception("LLM API error")
+
+            raw = response.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+            logger.info(f"Batch generation raw (first 200): {raw[:200]}")
+
+            # Extract JSON array from thinking model output
+            bracket_idx = raw.find('[')
+            if bracket_idx >= 0:
+                raw = raw[bracket_idx:]
+            last_bracket = raw.rfind(']')
+            if last_bracket != -1:
+                raw = raw[:last_bracket + 1]
+
+            batch_result = json.loads(raw)
+
+            # Map results back to question / pool lists
+            generated_questions = []
+            pool_questions = []
+
+            for item in batch_result:
+                q_num = item.get("number", 0)
+                is_pool = q_num > len(questions_config)
+
+                # Find matching original config for validation info
+                cfg_idx = (q_num - 1) if q_num >= 1 else 0
+                if cfg_idx < len(all_configs):
+                    orig_cfg = all_configs[cfg_idx]
+                else:
+                    orig_cfg = {}
+
+                bloom_level = item.get("bloomLevel", orig_cfg.get("bloomLevel", "understand"))
+                total_marks = item.get("totalMarks", orig_cfg.get("totalMarks", 6))
+                text = item.get("text", "")
+                parts_raw = item.get("parts", [])
+
+                cleaned_text = self._clean_generated_question(text)
+                validation = self._validate_question(cleaned_text, bloom_level, total_marks)
+
+                q_obj = {
+                    "number": q_num,
+                    "bloomLevel": bloom_level,
+                    "totalMarks": total_marks,
+                    "parts": parts_raw if parts_raw else self._parse_question_parts(cleaned_text, orig_cfg.get("parts", [])),
+                    "rawGeneration": cleaned_text,
+                    "validation": validation
+                }
+
+                if is_pool:
+                    pool_questions.append(q_obj)
+                else:
+                    generated_questions.append(q_obj)
+
+            return {
+                "name": section_name,
+                "instruction": section.get("instruction", ""),
+                "questions": generated_questions,
+                "pool": pool_questions
+            }
+
+        except Exception as e:
+            logger.error(f"Batch question generation failed: {e}. Falling back to per-question generation.")
+            # Fallback: generate per question (original slow path)
+            generated_questions = [self._generate_question(qc, context, subject, bloom_dist) for qc in questions_config]
+            pool_questions = [self._generate_question(qc, context, subject, bloom_dist) for qc in pool_configs]
+            return {
+                "name": section_name,
+                "instruction": section.get("instruction", ""),
+                "questions": generated_questions,
+                "pool": pool_questions
+            }
+
+
     def _get_fuzzy_bloom_distribution(self, difficulty: str) -> Dict[str, int]:
         """Get Bloom distribution based on difficulty level."""
         distributions = {
@@ -224,13 +339,20 @@ class RAGService:
             
             if response.status_code == 200:
                 response_json = response.json()
-                # Handle standard OpenAI-compatible chat response structure
-                generated_text = response_json.get("choices", [{}])[0].get("message", {}).get("content", "")
+                message = response_json.get("choices", [{}])[0].get("message", {})
+                
+                # Thinking models return reasoning separately in reasoning_content
+                # The actual answer is in content
+                generated_text = message.get("content", "")
                 
                 # Fallback to old structure if missing
                 if not generated_text:
-                     generated_text = response_json.get("message", {}).get("content", "") or response_json.get("response", "")
-                     
+                    generated_text = response_json.get("message", {}).get("content", "") or response_json.get("response", "")
+                
+                # Strip thinking model reasoning that leaked into content
+                # Pattern: model outputs "Okay, let's..." reasoning before the actual question
+                generated_text = self._strip_thinking_prefix(generated_text)
+                    
                 logger.info(f"DEBUG: LLM Raw Response for Q{q_config.get('number')}: {generated_text[:100]}...")
                 
                 if not generated_text.strip():
@@ -257,6 +379,7 @@ class RAGService:
                     "rawGeneration": cleaned_text,
                     "validation": validation  # Include validation results
                 }
+
             else:
                 logger.error(f"Ollama error: {response.status_code} - {response.text}")
                 return self._fallback_question(q_config)
@@ -265,6 +388,36 @@ class RAGService:
             logger.error(f"Question generation failed: {e}")
             return self._fallback_question(q_config)
     
+    def _strip_thinking_prefix(self, text: str) -> str:
+        """Strip reasoning prefixes that thinking models output before the actual question."""
+        text = text.strip()
+        lines = text.split('\n')
+        
+        # If the first few lines contain thinking markers, find where the actual question starts
+        thinking_markers = ["okay", "let's", "let me", "so,", "to generate", "first,"]
+        
+        start_idx = 0
+        in_thinking_block = False
+        
+        for i, line in enumerate(lines):
+            line_lower = line.strip().lower()
+            if i < 3 and any(line_lower.startswith(marker) for marker in thinking_markers):
+                in_thinking_block = True
+                continue
+                
+            # If we're in a thinking block, wait until we see a line that looks like a question
+            # or a blank line followed by a substantial line
+            if in_thinking_block:
+                if len(line.strip()) > 30 and line_lower[0].isalpha() and not any(line_lower.startswith(marker) for marker in thinking_markers):
+                    start_idx = i
+                    break
+            else:
+                break
+                
+        if start_idx > 0:
+            return '\n'.join(lines[start_idx:]).strip()
+        return text
+
     def _clean_generated_question(self, text: str) -> str:
         """Clean up repetitive prefixes and unwanted commentary."""
         # 1. Remove common repetitive prefixes

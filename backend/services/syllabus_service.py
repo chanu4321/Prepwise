@@ -46,11 +46,11 @@ def _parse_syllabus_with_llm(text: str) -> Optional[list]:
         ],
         "temperature": 0.6,
         "top_p": 0.7,
-        "max_tokens": 4096
+        "max_tokens": 16384
     }
 
     try:
-        response = requests.post(api_url, headers=headers, json=payload, timeout=60)
+        response = requests.post(api_url, headers=headers, json=payload, timeout=180)
         response.raise_for_status()
         result = response.json()
         
@@ -61,14 +61,22 @@ def _parse_syllabus_with_llm(text: str) -> Optional[list]:
             content = result.get('message', {}).get('content', '').strip()
         
         # Clean up potential markdown code blocks
-        if content.startswith('```json'):
-            content = content[7:]
-        elif content.startswith('```'):
-            content = content[3:]
-        if content.endswith('```'):
-            content = content[:-3]
+        if '```json' in content:
+            content = content.split('```json', 1)[1]
+        if '```' in content:
+            content = content.split('```')[0]
             
         content = content.strip()
+        
+        # Thinking models output reasoning text before JSON — find the actual JSON array
+        bracket_idx = content.find('[')
+        if bracket_idx > 0:
+            content = content[bracket_idx:]
+        
+        # Find the matching closing bracket
+        last_bracket = content.rfind(']')
+        if last_bracket != -1:
+            content = content[:last_bracket + 1]
         
         modules = json.loads(content)
         

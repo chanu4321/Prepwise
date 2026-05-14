@@ -24,13 +24,21 @@ class DocumentProcessor:
         return text.lower().strip()
 
     def clean_json(self, text: str):
-        """Attempts to extract valid JSON from LLM response."""
+        """Attempts to extract valid JSON from LLM response (handles thinking model output)."""
         text = text.strip()
         # Remove markdown code blocks
-        if text.startswith("```"):
-            text = text.split("```")[1]
-            if text.startswith("json"):
-                text = text[4:]
+        if '```json' in text:
+            text = text.split('```json', 1)[1]
+        if '```' in text:
+            text = text.split('```')[0]
+        text = text.strip()
+        # Thinking models output reasoning before JSON — find the actual JSON object
+        brace_idx = text.find('{')
+        if brace_idx > 0:
+            text = text[brace_idx:]
+        last_brace = text.rfind('}')
+        if last_brace != -1:
+            text = text[:last_brace + 1]
         return text.strip()
 
     def generate_metadata(self, extracted_text: str):
@@ -53,7 +61,9 @@ class DocumentProcessor:
             "messages": [
                 {"role": "user", "content": prompt}
             ],
-            "temperature": 0.1
+            "temperature": 0.6,
+            "top_p": 0.7,
+            "max_tokens": 16384
         }
         
         headers = {

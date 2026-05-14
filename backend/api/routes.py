@@ -1,9 +1,12 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Form
+from fastapi.responses import StreamingResponse
 from backend.services.ocr_service import DocumentProcessor
 import shutil
 import os
 import uuid
 import logging
+import json
+import asyncio
 
 from typing import List, Optional
 from backend.models import PaperMetadata
@@ -353,4 +356,93 @@ async def generate_mock_paper(request: dict):
     except Exception as e:
         print(f"Mock Paper Generation Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/generate/mock-paper-stream")
+async def generate_mock_paper_stream(request: dict):
+    """
+    SSE streaming endpoint: generates one question at a time and streams each
+    back as a Server-Sent Event so Cloudflare/nginx timeouts are never hit.
+    """
+    if "subject" not in request or "sections" not in request:
+        raise HTTPException(status_code=400, detail="Missing required fields: subject, sections")
+
+    async def event_stream():
+        try:
+            import copy, math
+            from backend.services.rag_service import RAGService
+
+            rag_service = RAGService()
+            subject = request["subject"]
+            sections = request["sections"]
+
+            # Retrieve context once upfront
+            similar_papers = rag_service._retrieve_similar_papers(subject, limit=3)
+            if not similar_papers:
+                yield f"data: {json.dumps({'type': 'error', 'message': 'No similar papers found'})}\n\n"
+                return
+            context = rag_service._extract_paper_context(similar_papers)
+
+            # Send metadata first so frontend knows source papers
+            yield f"data: {json.dumps({'type': 'meta', 'sourcePapers': [p['filename'] for p in similar_papers], 'subject': subject})}\n\n"
+            await asyncio.sleep(0)  # flush to client
+
+            result_sections = []
+
+            for section in sections:
+                section_name = section.get("name", "Section")
+                questions_config = section.get("questions", [])
+                bloom_mode = section.get("bloomMode", "simple")
+                generate_pool = section.get("generate_pool", False)
+
+                if bloom_mode == "simple":
+                    bloom_dist = rag_service._get_fuzzy_bloom_distribution(section.get("difficulty", "medium"))
+                else:
+                    bloom_dist = section.get("bloomDistribution", {})
+
+                pool_configs = []
+                if generate_pool and questions_config:
+                    pool_count = math.ceil(len(questions_config) * 0.5)
+                    for i in range(pool_count):
+                        base = copy.deepcopy(questions_config[i % len(questions_config)])
+                        base["number"] = len(questions_config) + i + 1
+                        pool_configs.append(base)
+
+                generated_questions = []
+                pool_questions = []
+
+                # Stream each question as it's generated
+                for q_config in questions_config:
+                    q = rag_service._generate_question(q_config, context, subject, bloom_dist)
+                    generated_questions.append(q)
+                    yield f"data: {json.dumps({'type': 'question', 'section': section_name, 'is_pool': False, 'question': q})}\n\n"
+                    await asyncio.sleep(0)
+
+                for q_config in pool_configs:
+                    q = rag_service._generate_question(q_config, context, subject, bloom_dist)
+                    pool_questions.append(q)
+                    yield f"data: {json.dumps({'type': 'question', 'section': section_name, 'is_pool': True, 'question': q})}\n\n"
+                    await asyncio.sleep(0)
+
+                result_sections.append({
+                    "name": section_name,
+                    "instruction": section.get("instruction", ""),
+                    "questions": generated_questions,
+                    "pool": pool_questions
+                })
+
+            # Final event with complete assembled paper
+            yield f"data: {json.dumps({'type': 'done', 'sections': result_sections, 'subject': subject, 'sourcePapers': [p['filename'] for p in similar_papers]})}\n\n"
+
+        except Exception as e:
+            logger.error(f"Streaming generation error: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no"  # disables nginx response buffering
+        }
+    )
 

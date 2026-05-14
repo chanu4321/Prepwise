@@ -206,31 +206,100 @@ export default function GeneratePage() {
 
     const generatePaper = async () => {
         setIsGenerating(true);
+        setGeneratedPaper(null); // Clear previous paper
         try {
             const sectionsWithPool = sections.map(s => ({ ...s, generate_pool: true }));
-            const response = await fetch(`${API_BASE_URL}/api/v1/generate/mock-paper`, {
+            
+            // Bypass Cloudflare timeout limit using direct VPS IP if provided in env
+            const API_URL = process.env.NEXT_PUBLIC_DIRECT_API_URL || API_BASE_URL;
+            
+            const response = await fetch(`${API_URL}/api/v1/generate/mock-paper-stream`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ subject, sections: sectionsWithPool })
             });
-            if (response.ok) {
-                const data = await response.json();
-                const processedSections = data.sections.map((s: any, idx: number) => ({
-                    ...s,
-                    id: sections[idx]?.id || `section-${idx}`,
-                    questions: s.questions.map((q: any, qIdx: number) => ({ ...q, id: `sq-${idx}-${qIdx}` })),
-                    pool: s.pool?.map((q: any, pIdx: number) => ({ ...q, id: `pq-${idx}-${pIdx}` })) || []
-                }));
-                setGeneratedPaper({ ...data, sections: processedSections });
-                setTimeout(() => {
-                    document.getElementById('generated-result')?.scrollIntoView({ behavior: 'smooth' });
-                }, 100);
-            } else {
-                alert("Failed to generate paper");
+
+            if (!response.ok) {
+                alert("Failed to connect to generation service");
+                setIsGenerating(false);
+                return;
+            }
+
+            const reader = response.body?.getReader();
+            const decoder = new TextDecoder();
+            let currentPaperState: any = null;
+
+            if (reader) {
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    const chunk = decoder.decode(value, { stream: true });
+                    const events = chunk.split('\n\n');
+                    
+                    for (const event of events) {
+                        if (event.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(event.slice(6));
+                                
+                                if (data.type === 'meta') {
+                                    // Initialize structure
+                                    currentPaperState = {
+                                        subject: data.subject,
+                                        sourcePapers: data.sourcePapers,
+                                        sections: sections.map((s, idx) => ({ 
+                                            name: s.name, 
+                                            instruction: s.instruction, 
+                                            id: s.id || `section-${idx}`,
+                                            questions: [], 
+                                            pool: [] 
+                                        }))
+                                    };
+                                    setGeneratedPaper({ ...currentPaperState });
+                                    setTimeout(() => {
+                                        document.getElementById('generated-result')?.scrollIntoView({ behavior: 'smooth' });
+                                    }, 100);
+                                    
+                                } else if (data.type === 'question') {
+                                    // Add single question
+                                    if (currentPaperState) {
+                                        const secIndex = currentPaperState.sections.findIndex((s: any) => s.name === data.section);
+                                        if (secIndex !== -1) {
+                                            const newQuestion = { 
+                                                ...data.question, 
+                                                id: `${data.is_pool ? 'pq' : 'sq'}-${secIndex}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
+                                            };
+                                            if (data.is_pool) {
+                                                currentPaperState.sections[secIndex].pool.push(newQuestion);
+                                            } else {
+                                                currentPaperState.sections[secIndex].questions.push(newQuestion);
+                                            }
+                                            setGeneratedPaper({ ...currentPaperState });
+                                        }
+                                    }
+                                } else if (data.type === 'done') {
+                                    // Final sync with exact backend format
+                                    const processedSections = data.sections.map((s: any, idx: number) => ({
+                                        ...s,
+                                        id: sections[idx]?.id || `section-${idx}`,
+                                        questions: s.questions.map((q: any, qIdx: number) => ({ ...q, id: `sq-${idx}-${qIdx}` })),
+                                        pool: s.pool?.map((q: any, pIdx: number) => ({ ...q, id: `pq-${idx}-${pIdx}` })) || []
+                                    }));
+                                    setGeneratedPaper({ ...data, sections: processedSections });
+                                } else if (data.type === 'error') {
+                                    alert(`Generation Error: ${data.message}`);
+                                }
+                            } catch (e) {
+                                // Sometimes chunks break mid-JSON, safe to ignore as the next chunk will have the rest
+                                console.log("Streaming chunk assembly...", e);
+                            }
+                        }
+                    }
+                }
             }
         } catch (error) {
             console.error(error);
-            alert("Error generating paper");
+            alert("Error connecting to generation stream");
         } finally {
             setIsGenerating(false);
         }
