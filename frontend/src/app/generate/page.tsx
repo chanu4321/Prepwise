@@ -209,10 +209,10 @@ export default function GeneratePage() {
         setGeneratedPaper(null); // Clear previous paper
         try {
             const sectionsWithPool = sections.map(s => ({ ...s, generate_pool: true }));
-            
+
             // Bypass Cloudflare timeout limit using direct VPS IP if provided in env
             const API_URL = process.env.NEXT_PUBLIC_DIRECT_API_URL || API_BASE_URL;
-            
+
             const response = await fetch(`${API_URL}/api/v1/generate/mock-paper-stream`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -233,40 +233,40 @@ export default function GeneratePage() {
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
-                    
+
                     const chunk = decoder.decode(value, { stream: true });
                     const events = chunk.split('\n\n');
-                    
+
                     for (const event of events) {
                         if (event.startsWith('data: ')) {
                             try {
                                 const data = JSON.parse(event.slice(6));
-                                
+
                                 if (data.type === 'meta') {
                                     // Initialize structure
                                     currentPaperState = {
                                         subject: data.subject,
                                         sourcePapers: data.sourcePapers,
-                                        sections: sections.map((s, idx) => ({ 
-                                            name: s.name, 
-                                            instruction: s.instruction, 
+                                        sections: sections.map((s, idx) => ({
+                                            name: s.name,
+                                            instruction: s.instruction,
                                             id: s.id || `section-${idx}`,
-                                            questions: [], 
-                                            pool: [] 
+                                            questions: [],
+                                            pool: []
                                         }))
                                     };
                                     setGeneratedPaper({ ...currentPaperState });
                                     setTimeout(() => {
                                         document.getElementById('generated-result')?.scrollIntoView({ behavior: 'smooth' });
                                     }, 100);
-                                    
+
                                 } else if (data.type === 'question') {
                                     // Add single question
                                     if (currentPaperState) {
                                         const secIndex = currentPaperState.sections.findIndex((s: any) => s.name === data.section);
                                         if (secIndex !== -1) {
-                                            const newQuestion = { 
-                                                ...data.question, 
+                                            const newQuestion = {
+                                                ...data.question,
                                                 id: `${data.is_pool ? 'pq' : 'sq'}-${secIndex}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
                                             };
                                             if (data.is_pool) {
@@ -311,7 +311,7 @@ export default function GeneratePage() {
         const { active, over } = event;
         setActiveId(null);
         if (!over || active.id === over.id || !generatedPaper) return;
-        
+
         // DEEP COPY to avoid mutating React state directly
         const newSections = generatedPaper.sections.map((s: any) => ({
             ...s,
@@ -332,7 +332,7 @@ export default function GeneratePage() {
         const src = findLocation(active.id as string);
         const dest = findLocation(over.id as string);
         if (!src || !dest) return;
-        
+
         const srcSection = newSections[src.sIdx];
         const destSection = newSections[dest.sIdx];
 
@@ -348,7 +348,7 @@ export default function GeneratePage() {
             // Moving between lists/sections
             const srcList = src.list === 'questions' ? srcSection.questions : srcSection.pool!;
             const destList = dest.list === 'questions' ? destSection.questions : destSection.pool!;
-            
+
             const [movedItem] = srcList.splice(src.idx, 1);
             destList.splice(dest.idx, 0, movedItem);
 
@@ -577,7 +577,7 @@ export default function GeneratePage() {
                                     {syllabus && <div className="col-span-3">Module</div>}
                                     <div className={syllabus ? "col-span-3" : "col-span-6"}>Marks</div>
                                 </div>
-                                
+
                                 <div className="space-y-4">
                                     {section.questions.map((q, qIdx) => (
                                         <div key={q.id || qIdx} className="space-y-1">
