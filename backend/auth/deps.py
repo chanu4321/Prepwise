@@ -23,9 +23,16 @@ def get_user_store() -> PostgresUserStore:
 def optional_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     store: PostgresUserStore = Depends(get_user_store),
+    request: Request = None,
 ) -> User | None:
     """The signed-in user, or None without a token. A token that fails validation is always a 401."""
     if credentials is None:
+        # Check if an Authorization header was present but malformed
+        auth_header = request.headers.get("authorization") if request else None
+        if auth_header:
+            logger.info("Rejected malformed Authorization header")
+            raise ApiError(401, "invalid_token", "Your sign-in has expired or is invalid. Please sign in again.",
+                           headers=_BEARER_CHALLENGE)
         return None
     try:
         claims = verify_access_token(credentials.credentials)

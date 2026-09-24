@@ -141,3 +141,18 @@ def test_enforce_quota_skips_unlimited_and_refuses_zero():
     with pytest.raises(ApiError) as caught:
         enforce_quota(fake, "user:1", "generate", 0)
     assert caught.value.status_code == 403
+
+
+@pytest.mark.parametrize("header_value", [
+    "Bearer",
+    "Bearer ",
+    "Basic abc",
+    "garbage",
+])
+def test_malformed_authorization_header_is_401_not_anonymous(probe, header_value):
+    """Malformed Authorization headers should be 401, not silently treated as anonymous."""
+    client, _, _ = probe
+    response = client.get("/optional", headers={"Authorization": header_value})
+    assert response.status_code == 401
+    assert response.json()["code"] == "invalid_token"
+    assert response.headers["www-authenticate"] == "Bearer"
