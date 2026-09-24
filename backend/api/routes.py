@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Form
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from services.ocr_service import DocumentProcessor
 import shutil
@@ -9,13 +9,16 @@ import asyncio
 
 from typing import List
 
-from auth.deps import enforce_quota, get_user_store, refund_quota_if_counted, require_role, user_subject
-from auth.limits import generate_limit
+from auth.deps import (enforce_quota, get_user_store, optional_user, quota_subject, refund_quota_if_counted,
+                       require_role, user_subject)
+from auth.limits import generate_limit, syllabus_limit, upload_limit
 from auth.users import PostgresUserStore, User
 from database import db_cursor
 from errors import ApiError
+from services.paper_metadata import to_paper_fields
+from services.paper_store import insert_paper
 from services.rag_service import RAGService
-from services.syllabus_service import get_syllabus_by_code
+from services.syllabus_service import get_syllabus_by_code, get_syllabus_owner, process_and_save_syllabus
 from services.vector_service import VectorService
 
 logger = logging.getLogger(__name__)
@@ -23,166 +26,112 @@ router = APIRouter()
 # Store papers in 'backend/papers' directory
 processor = DocumentProcessor(upload_dir="backend/papers")
 
-@router.post("/documents/ingest")
-async def ingest_document(file: UploadFile = File(...)):
-    """
-    Uploads a PDF, runs OCR/Metadata extraction, and returns the result.
-    """
-    try:
-        # 1. Save the file locally
-        file_ext = file.filename.split(".")[-1]
-        if file_ext.lower() != "pdf":
-            raise HTTPException(status_code=400, detail="Only PDF files are supported")
+REQUIRED_METADATA = ("subjectCode", "subjectName", "monthYear", "time", "marks")
+METADATA_ATTEMPTS = 2
 
-        # Use original filename
-        filename = os.path.basename(file.filename)
+def _extract_metadata_with_retry(file_path: str) -> dict:
+    """Header OCR + LLM metadata extraction, asking the LLM again if required fields come back empty."""
+    result: dict = {"text": "", "metadata": None}
+    for attempt in range(1, METADATA_ATTEMPTS + 1):
+        result = processor.process_pdf(file_path)
+        metadata = result.get("metadata") or {}
+        if all(metadata.get(field) for field in REQUIRED_METADATA):
+            break
+        logger.info("Metadata incomplete for %s on attempt %d", file_path, attempt)
+    return result
+
+def _index_paper(paper_id: int, file_path: str, filename: str, fields: dict, header_text: str) -> None:
+    """Best effort: OCR every page and store the embedding. The paper row is saved either way."""
+    try:
+        full_text = processor.extract_full_text(file_path)
+    except Exception:
+        logger.exception("Full-text OCR failed for %s; indexing the header text only", filename)
+        full_text = header_text
+    try:
+        stored = VectorService().upsert_paper(
+            paper_id=paper_id,
+            text=full_text,
+            metadata={"subject_code": fields["subject_code"], "subject_name": fields["subject_name"],
+                      "year": fields["year"], "filename": filename},
+        )
+        if not stored:
+            logger.error("Failed to store the embedding for paper %s", paper_id)
+    except Exception:
+        logger.exception("Vector indexing failed for paper %s", paper_id)
+
+@router.post("/documents/ingest")
+def ingest_document(
+    http_request: Request,
+    file: UploadFile = File(...),
+    user: User | None = Depends(optional_user),
+    store: PostgresUserStore = Depends(get_user_store),
+):
+    """Uploads a PDF, runs OCR/metadata extraction, saves it, and indexes it for search."""
+    if user is not None and user.role is None:
+        raise ApiError(403, "role_required", "Choose Student or Faculty to continue.")
+    limit = upload_limit(user)
+    if limit == 0:
+        raise ApiError(403, "forbidden", "Paper uploads need a student or verified faculty account.")
+
+    filename = os.path.basename(file.filename or "")
+    if not filename.lower().endswith(".pdf"):
+        raise ApiError(400, "invalid_file", "Only PDF files are supported.")
+
+    subject = quota_subject(user, http_request)
+    enforce_quota(store, subject, "upload", limit)
+    try:
         file_path = os.path.join(processor.upload_dir, filename)
-        
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
+        result = _extract_metadata_with_retry(file_path)
+        fields = to_paper_fields(result.get("metadata"))
+        paper_id = insert_paper(
+            filename=filename,
+            file_path=file_path.replace("\\", "/"),
+            fields=fields,
+            uploaded_by=user.id if user is not None else None,
+        )
+    except Exception:
+        refund_quota_if_counted(store, subject, "upload", limit)
+        raise
 
-        # 2. Process the file with retry logic
-        max_retries = 2
-        result = None
-        metadata = {}
-        
-        for attempt in range(max_retries):
-            result = processor.process_pdf(file_path)
-            metadata = result.get("metadata", {}) or {}
-            print(f"DEBUG METADATA (Attempt {attempt + 1}): {metadata}")
-            
-            # Validate critical fields (semester is optional)
-            required_fields = [
-                metadata.get("subjectCode"),
-                metadata.get("subjectName"),
-                metadata.get("monthYear"),
-                metadata.get("time"),
-                metadata.get("marks")
-            ]
-            
-            # Check if all required fields have values
-            if all(field for field in required_fields):
-                print(f"OCR successful on attempt {attempt + 1}")
-                break
-            else:
-                print(f"OCR incomplete on attempt {attempt + 1}, retrying...")
-                if attempt == max_retries - 1:
-                    print("Max retries reached, proceeding with partial data")
- # Debugging
-
-        # 3. Save to Database (NeonDB)
-        paper_id = None
-        try:
-            from database import get_db_connection
-            conn = get_db_connection()
-            cur = conn.cursor()
-            
-            # Normalize path for DB (use forward slashes)
-            db_file_path = file_path.replace("\\", "/")
-
-            # Handle marks field - sometimes OCR returns it as a dict or integer
-            marks_value = metadata.get("marks")
-            if isinstance(marks_value, dict):
-                marks_value = marks_value.get("Max Marks") or marks_value.get("max_marks") or str(marks_value)
-            elif isinstance(marks_value, int):
-                marks_value = str(marks_value)
-            
-            cur.execute(
-                """
-                INSERT INTO papers (filename, file_path, subject_code, subject_name, semester, year, time, marks)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                RETURNING id
-                """,
-                (
-                    filename,
-                    db_file_path,
-                    metadata.get("subjectCode"),
-                    metadata.get("subjectName"),
-                    metadata.get("semester"),
-                    metadata.get("monthYear"),
-                    metadata.get("time"),
-                    marks_value
-                )
-            )
-            paper_id = cur.fetchone()[0]
-            conn.commit()
-            cur.close()
-            conn.close()
-
-            # 4. Extract full text from ALL pages for RAG
-            print(f"Extracting full text from all pages...")
-            try:
-                full_text = processor.extract_full_text(file_path)
-                print(f"Extracted {len(full_text)} characters from PDF")
-            except Exception as e:
-                print(f"Full text extraction failed: {e}")
-                full_text = result.get("text", "")  # Fallback to header text
-
-            # 5. Generate & Store Vector Embedding (Qdrant)
-            try:
-                from services.vector_service import VectorService
-                vector_service = VectorService()
-                success = vector_service.upsert_paper(
-                    paper_id=paper_id,
-                    text=full_text,  # Use full text instead of just header
-                    metadata={
-                        "subject_code": metadata.get("subjectCode") or metadata.get("Subject Code"),
-                        "subject_name": metadata.get("subjectName") or metadata.get("Subject Name"),
-                        "year": metadata.get("monthYear") or metadata.get("Month/Year"),
-                        "filename": filename
-                    }
-                )
-                if success:
-                    print(f"Vector embedding stored for paper {paper_id}")
-                else:
-                    print(f"Failed to store vector embedding for paper {paper_id}")
-            except Exception as e:
-                print(f"Vector Service Error: {e}")
-
-        except Exception as e:
-            print(f"Database Insert Error: {e}")
-        
-        return {
-            "status": "success",
-            "filename": filename,
-            "db_id": paper_id,
-            "data": result
-        }
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    _index_paper(paper_id, file_path, filename, fields, result.get("text", ""))
+    return {"status": "success", "filename": filename, "db_id": paper_id, "data": result}
 
 @router.post("/syllabus/upload")
 async def upload_syllabus(
     file: UploadFile = File(...),
     subject_code: str = Form(...),
-    subject_name: str = Form(...)
+    subject_name: str = Form(...),
+    user: User = Depends(require_role("faculty", "admin")),
+    store: PostgresUserStore = Depends(get_user_store),
 ):
     """Uploads a syllabus PDF, extracts modules and weightage, and saves to database."""
-    if not file.filename.endswith('.pdf'):
-        raise HTTPException(status_code=400, detail="Only PDF files are supported.")
-        
-    try:
-        file_bytes = await file.read()
-        
-        # Import dynamically or at top level to avoid circular imports if any
-        from services.syllabus_service import process_and_save_syllabus
-        
-        result = process_and_save_syllabus(
-            file_bytes=file_bytes,
-            filename=file.filename,
-            subject_code=subject_code,
-            subject_name=subject_name
-        )
-        
-        if not result.get("success"):
-            raise HTTPException(status_code=500, detail=result.get("error", "Unknown error processing syllabus"))
-            
-        return result
-        
-    except Exception as e:
-        logger.error(f"Error in syllabus upload endpoint: {e}")
-        raise HTTPException(status_code=500, detail=f"Error processing syllabus: {str(e)}")
+    limit = syllabus_limit(user)
+    if limit == 0:
+        raise ApiError(403, "forbidden", "Syllabus uploads need a verified faculty account.")
+    if not (file.filename or "").lower().endswith(".pdf"):
+        raise ApiError(400, "invalid_file", "Only PDF files are supported.")
+
+    exists, owner = get_syllabus_owner(subject_code)
+    if exists and user.role != "admin" and owner != user.id:
+        raise ApiError(403, "forbidden", "Only the original uploader or an admin can replace this syllabus.")
+
+    subject = user_subject(user)
+    enforce_quota(store, subject, "syllabus", limit)
+    result = process_and_save_syllabus(
+        file_bytes=await file.read(),
+        filename=file.filename,
+        subject_code=subject_code,
+        subject_name=subject_name,
+        uploaded_by=user.id,
+    )
+    if not result.get("success"):
+        logger.error("Syllabus processing failed for %s: %s", subject_code, result.get("error"))
+        refund_quota_if_counted(store, subject, "syllabus", limit)
+        raise ApiError(422, "syllabus_unreadable",
+                       "We couldn't read the modules from this syllabus. Check the PDF and try again.")
+    return result
 
 @router.get("/syllabus/{subject_code}")
 def get_syllabus(subject_code: str, user: User = Depends(require_role("faculty", "admin"))):

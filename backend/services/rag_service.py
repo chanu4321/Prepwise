@@ -48,12 +48,12 @@ class RAGService:
         context = self._extract_paper_context(similar_papers)
         
         # Debugging
-        print(f"DEBUG: Received {len(sections)} sections in request")
-        
+        logger.debug("Received %d sections in request", len(sections))
+
         # 3. Generate questions for each section
         generated_sections = []
         for i, section in enumerate(sections):
-            print(f"DEBUG: Processing section {i+1}: {section.get('name')}")
+            logger.debug("Processing section %d: %s", i + 1, section.get('name'))
             section_result = self._generate_section(section, context, subject)
             generated_sections.append(section_result)
         

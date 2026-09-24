@@ -135,3 +135,30 @@ def fake_db_cursor(rows):
             return rows
 
     yield _Cursor()
+
+
+class FakeProcessor:
+    """Stands in for DocumentProcessor; writes nothing but the uploaded file."""
+
+    def __init__(self, upload_dir, metadata=None, full_text="full text", fail=False):
+        self.upload_dir = str(upload_dir)
+        self.metadata = metadata if metadata is not None else {
+            "subjectCode": "aiml 201", "subjectName": "Intro to AIML", "monthYear": "May, 2022", "time": "3 Hrs", "marks": 60}
+        self.full_text = full_text
+        self.fail = fail
+
+    def process_pdf(self, file_path):
+        if self.fail:
+            raise RuntimeError("tesseract crashed reading /secret/path")
+        return {"text": "header text", "metadata": dict(self.metadata)}
+
+    def extract_full_text(self, file_path):
+        return self.full_text
+
+
+class FakeVectorService:
+    upserts: list = []
+
+    def upsert_paper(self, paper_id, text, metadata):
+        FakeVectorService.upserts.append((paper_id, text, metadata))
+        return True
