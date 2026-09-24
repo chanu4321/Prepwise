@@ -22,6 +22,7 @@ share/python-wheels/
 MANIFEST
 .env
 venv/
+.venv/
 ENV/
 env/
 PYTHON/
@@ -34,6 +35,7 @@ __pycache__/
 *.py[cod]
 backend/test_ocr.py
 backend/sync_db.py
+backend/.venv
 
 # Node.js
 node_modules/

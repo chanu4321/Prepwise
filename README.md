@@ -26,7 +26,7 @@ flowchart TD
     %% Database storage
     subgraph Storage [Storage Layer]
         D -->|Save Metadata| E[(Neon Postgres DB)]
-        C -->|Extract Full Text| F[NVIDIA nv-embed-v1]
+        C -->|Extract Full Text| F[NVIDIA nemotron-3-embed-1b]
         F -->|Generate Embeddings| G[(Qdrant Vector DB)]
     end
 
@@ -42,7 +42,7 @@ flowchart TD
         L[Frontend Config Request] -->|Subject, Sections, Bloom Levels| M[FastAPI RAG Service]
         M -->|1. Query Similar Context| G
         G -->|2. Retrieve Past Questions| M
-        M -->|3. Assemble Context & Instructions| N[NVIDIA NIM Qwen Model]
+        M -->|3. Assemble Context & Instructions| N[NVIDIA NIM GLM Model]
         N -->|4. Stream Generated Questions via SSE| O[Frontend Next.js App]
         O -->|5. Drag & Drop Organization| P[Interactive User View]
     end
@@ -60,7 +60,7 @@ flowchart TD
 
 * **📄 Document Ingestion & OCR Processing:** Supports PDF question paper uploads. Automatically extracts headers and cleans them using `pytesseract` and `pdf2image` to pull key metadata fields: `subjectCode`, `subjectName`, `semester`, `monthYear`, `time`, and `marks`.
 * **📚 Syllabus Breakdown & Analysis:** Uploads syllabus PDFs and extracts core modules, topics covered, and percentage weightages using LLMs. Normalizes syllabus distributions to ensure balanced question coverage.
-* **🔍 Semantic Vector Search:** Converts full-text past papers into dense vector embeddings using `nvidia/nv-embed-v1` and indexes them in a **Qdrant** cluster. Enables semantically searching for exam topics or questions.
+* **🔍 Semantic Vector Search:** Converts full-text past papers into dense vector embeddings using `nvidia/nemotron-3-embed-1b` and indexes them in a **Qdrant** cluster. Enables semantically searching for exam topics or questions.
 * **🧠 Bloom's Taxonomy-Based Generation:** Allows custom mock paper configuration mapped to Bloom's Taxonomy cognitive dimensions (*Remember, Understand, Apply, Analyze, Evaluate, Create*). Automatically verifies if the generated questions utilize target action verbs.
 * **⚡ Server-Sent Events (SSE) Streaming:** Generates mock papers by streaming questions in real-time, preventing network timeout issues (e.g. Cloudflare 100s limits) and offering a smooth user experience.
 * **✅ Question Validation Engine:** Evaluates generated questions programmatically against strict standards (minimum length, placeholder checks, punctuation checks, complexity matching, and contextual repetition flags).
@@ -80,7 +80,7 @@ flowchart TD
 | **Database (Relational)** | NeonDB (PostgreSQL) | Serverless PostgreSQL database for structured data |
 | **Database (Vector)** | Qdrant Cloud | Vector database for similarity search and RAG context |
 | **OCR Pipeline** | Tesseract-OCR & `pdf2image` | Optical Character Recognition for document digitizing |
-| **LLM Inference** | NVIDIA NIM API | Hosting `qwen/qwen3-next-80b-a3b-thinking` & `nvidia/nv-embed-v1` |
+| **LLM Inference** | NVIDIA NIM API | Hosting `z-ai/glm-5.3-flash` & `nvidia/nemotron-3-embed-1b` |
 
 ---
 
@@ -124,7 +124,7 @@ CREATE TABLE syllabi (
 ### Qdrant Vector Collection
 
 * **Collection Name:** `papers`
-* **Vector Dimension Size:** `4096`
+* **Vector Dimension Size:** `2048`
 * **Distance Metric:** `Cosine`
 * **Payload Schema:**
 
@@ -151,12 +151,12 @@ DATABASE_URL=postgresql://<user>:<password>@<host>/<database>?sslmode=require
 # NVIDIA LLM & Embedding Endpoints
 NVIDIA_API_KEY=nvapi-...
 LLM_API_URL=https://integrate.api.nvidia.com/v1/chat/completions
-LLM_MODEL=qwen/qwen3-next-80b-a3b-thinking
+LLM_MODEL=z-ai/glm-5.3-flash
 
 # NVIDIA Embeddings API
 NVIDIA_EMBED_API_KEY=nvapi-...
 EMBEDDING_API_URL=https://integrate.api.nvidia.com/v1/embeddings
-EMBEDDING_MODEL=nvidia/nv-embed-v1
+EMBEDDING_MODEL=nvidia/nemotron-3-embed-1b
 
 # Qdrant Vector Search Config
 QDRANT_URL=https://<your-qdrant-cluster-url>:6333
@@ -217,15 +217,15 @@ QDRANT_API_KEY=...
     You can trigger the schema creation using a Python interactive shell:
 
     ```bash
-    python -c "from backend.database import init_db; init_db()"
+    python -c "from database import init_db; init_db()"
     ```
 
 5. Start the FastAPI backend server:
     * **On Windows:** Simply double-click or run `run_backend.bat` from the root directory.
-    * **Alternative Manual CLI:**
+    * **Alternative Manual CLI** (run from the project root, so uploads land in `backend/papers`):
 
     ```bash
-    uvicorn backend.main:app --reload --port 8000
+    uvicorn main:app --app-dir backend --reload --reload-dir backend --port 8000
     ```
 
     * The API documentation will be available at: [http://localhost:8000/docs](http://localhost:8000/docs)
@@ -273,6 +273,13 @@ Inside the `backend/dev-scripts` directory, there are multiple utilities to debu
     python backend/dev-scripts/manage_db.py reset
     ```
 
+    * *Re-embed all papers after changing the embedding model (reads the stored full text, no OCR re-run). `reembed` fills a staging collection and is safe to re-run; `finalize-reembed` then replaces `papers` with it after a confirmation:*
+
+    ```bash
+    python backend/dev-scripts/manage_db.py reembed
+    python backend/dev-scripts/manage_db.py finalize-reembed
+    ```
+
 2. **`debug_pipeline.py`:** Checks if the PDF conversion, OCR engine, and metadata extraction endpoints are working correctly.
     * *Usage:*
 
@@ -280,4 +287,4 @@ Inside the `backend/dev-scripts` directory, there are multiple utilities to debu
     python backend/dev-scripts/debug_pipeline.py <path_to_pdf>
     ```
 
-3. **`test_rag.py` / `test_rag_debug.py`:** Tests similarity retrieval and Qwen mock-paper generation pipelines locally.
+3. **`test_rag.py` / `test_rag_debug.py`:** Tests similarity retrieval and GLM mock-paper generation pipelines locally.

@@ -7,7 +7,7 @@ export function Navbar() {
             <div className="container mx-auto flex h-14 items-center px-4 md:px-6">
                 <Link href="/" className="mr-6 flex items-center space-x-2">
                     <BookOpen className="h-6 w-6 text-primary" />
-                    <span className="hidden font-bold sm:inline-block">Academic Repo</span>
+                    <span className="hidden font-bold sm:inline-block">PrepWise</span>
                 </Link>
                 <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
                     <div className="flex items-center space-x-4 md:space-x-6 text-sm font-medium">

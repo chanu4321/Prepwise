@@ -57,7 +57,7 @@ class DocumentProcessor:
         )
         
         data = {
-            "model": os.getenv("LLM_MODEL") or "qwen/qwen3-next-80b-a3b-thinking",
+            "model": os.getenv("LLM_MODEL") or "z-ai/glm-5.3-flash",
             "messages": [
                 {"role": "user", "content": prompt}
             ],
@@ -70,7 +70,7 @@ class DocumentProcessor:
             "Authorization": f"Bearer {os.getenv('NVIDIA_API_KEY', '')}",
             "Content-Type": "application/json"
         }
-        api_url = os.getenv("LLM_API_URL", "https://integrate.api.nvidia.com/v1/chat/completions")
+        api_url = os.getenv("LLM_API_URL") or "https://integrate.api.nvidia.com/v1/chat/completions"
 
         try:
             response = requests.post(api_url, headers=headers, json=data, timeout=90)

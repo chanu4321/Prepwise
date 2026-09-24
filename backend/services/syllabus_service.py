@@ -3,8 +3,8 @@ import json
 import logging
 import requests
 from typing import Dict, Any, Optional
-from backend.services.ocr_service import DocumentProcessor
-from backend.database import get_db_connection
+from services.ocr_service import DocumentProcessor
+from database import get_db_connection
 
 logger = logging.getLogger(__name__)
 
@@ -33,14 +33,14 @@ def _parse_syllabus_with_llm(text: str) -> Optional[list]:
     ]
     '''
     
-    api_url = os.getenv("LLM_API_URL", "https://integrate.api.nvidia.com/v1/chat/completions")
+    api_url = os.getenv("LLM_API_URL") or "https://integrate.api.nvidia.com/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {os.getenv('NVIDIA_API_KEY', '')}",
         "Content-Type": "application/json"
     }
     
     payload = {
-        "model": os.getenv("LLM_MODEL") or "qwen/qwen3-next-80b-a3b-thinking",
+        "model": os.getenv("LLM_MODEL") or "z-ai/glm-5.3-flash",
         "messages": [
             {"role": "user", "content": f"{system_prompt}\n\nTask: Extract the module breakdown from this syllabus text:\n\n{text}"}
         ],

@@ -1,4 +1,4 @@
 @echo off
 echo Starting FastAPI Backend...
-uvicorn backend.main:app --reload --port 8000
+uvicorn main:app --app-dir backend --reload --reload-dir backend --port 8000
 pause

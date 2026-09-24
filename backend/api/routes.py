@@ -1,6 +1,6 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Form
 from fastapi.responses import StreamingResponse
-from backend.services.ocr_service import DocumentProcessor
+from services.ocr_service import DocumentProcessor
 import shutil
 import os
 import uuid
@@ -9,7 +9,7 @@ import json
 import asyncio
 
 from typing import List, Optional
-from backend.models import PaperMetadata
+from models import PaperMetadata
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -66,7 +66,7 @@ async def ingest_document(file: UploadFile = File(...)):
         # 3. Save to Database (NeonDB)
         paper_id = None
         try:
-            from backend.database import get_db_connection
+            from database import get_db_connection
             conn = get_db_connection()
             cur = conn.cursor()
             
@@ -113,7 +113,7 @@ async def ingest_document(file: UploadFile = File(...)):
 
             # 5. Generate & Store Vector Embedding (Qdrant)
             try:
-                from backend.services.vector_service import VectorService
+                from services.vector_service import VectorService
                 vector_service = VectorService()
                 success = vector_service.upsert_paper(
                     paper_id=paper_id,
@@ -159,7 +159,7 @@ async def upload_syllabus(
         file_bytes = await file.read()
         
         # Import dynamically or at top level to avoid circular imports if any
-        from backend.services.syllabus_service import process_and_save_syllabus
+        from services.syllabus_service import process_and_save_syllabus
         
         result = process_and_save_syllabus(
             file_bytes=file_bytes,
@@ -180,7 +180,7 @@ async def upload_syllabus(
 @router.get("/syllabus/{subject_code}")
 async def get_syllabus(subject_code: str):
     """Retrieves a syllabus by subject code."""
-    from backend.services.syllabus_service import get_syllabus_by_code
+    from services.syllabus_service import get_syllabus_by_code
     
     syllabus = get_syllabus_by_code(subject_code)
     if not syllabus:
@@ -192,7 +192,7 @@ async def get_syllabus(subject_code: str):
 async def get_documents():
     """Fetch all documents from NeonDB for the frontend."""
     try:
-        from backend.database import get_db_connection
+        from database import get_db_connection
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("SELECT id, filename, subject_code, subject_name, semester, year, time, marks FROM papers ORDER BY id DESC")
@@ -221,7 +221,7 @@ async def get_documents():
 async def download_paper(paper_id: int):
     """Download a paper PDF by ID."""
     try:
-        from backend.database import get_db_connection
+        from database import get_db_connection
         from fastapi.responses import FileResponse
         
         conn = get_db_connection()
@@ -244,6 +244,8 @@ async def download_paper(paper_id: int):
             filename=filename,
             media_type="application/pdf"
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -255,8 +257,8 @@ async def semantic_search(request: dict):
     query = request.get("query", "")
     limit = request.get("limit", 5)
     try:
-        from backend.services.vector_service import VectorService
-        from backend.database import get_db_connection
+        from services.vector_service import VectorService
+        from database import get_db_connection
         
         # 1. Get similar paper IDs from Qdrant
         vector_service = VectorService()
@@ -334,7 +336,7 @@ async def generate_mock_paper(request: dict):
     }
     """
     try:
-        from backend.services.rag_service import RAGService
+        from services.rag_service import RAGService
         
         # Validate required fields
         if "subject" not in request or "sections" not in request:
@@ -369,7 +371,7 @@ async def generate_mock_paper_stream(request: dict):
     async def event_stream():
         try:
             import copy, math
-            from backend.services.rag_service import RAGService
+            from services.rag_service import RAGService
 
             rag_service = RAGService()
             subject = request["subject"]

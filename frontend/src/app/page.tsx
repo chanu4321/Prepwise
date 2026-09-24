@@ -3,15 +3,15 @@
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import {
-    FileText, Brain, Zap, Search, Upload, BookOpen,
-    ArrowRight, CheckCircle, ChevronRight, Layers, Cpu
+    FileText, Brain, Zap, Search,
+    ArrowRight, CheckCircle, Layers, Cpu
 } from "lucide-react";
 
 const FEATURES = [
     {
         icon: <FileText className="h-7 w-7" />,
         title: "Advanced OCR",
-        desc: "Convert handwritten lecture notes into high-fidelity digital assets instantly using proprietary neural vision models.",
+        desc: "Upload scanned question-paper PDFs. OCR extracts the text and an LLM pulls out the subject, year, duration and marks automatically.",
         border: "hover:border-blue-500/40",
         iconColor: "text-blue-400",
         bg: "bg-blue-500/5",
@@ -19,7 +19,7 @@ const FEATURES = [
     {
         icon: <Search className="h-7 w-7" />,
         title: "Semantic Search",
-        desc: "Find contextually relevant information across years of study materials with an AI that understands meaning, not just keywords.",
+        desc: "Find relevant past papers across years of exams with vector search that understands meaning, not just keywords.",
         border: "hover:border-purple-500/40",
         iconColor: "text-purple-400",
         bg: "bg-purple-500/5",
@@ -59,10 +59,10 @@ const FEATURES = [
 ];
 
 const STATS = [
-    { value: "10K+", label: "Questions Generated" },
-    { value: "500+", label: "Past Papers Indexed" },
+    { value: "OCR", label: "Scanned PDF Ingestion" },
+    { value: "RAG", label: "Grounded in Past Papers" },
     { value: "6", label: "Bloom Levels" },
-    { value: "100%", label: "AI Powered" },
+    { value: "Live", label: "Streamed Generation" },
 ];
 
 const VALUE_POINTS = [
@@ -242,9 +242,6 @@ export default function Home() {
                             <div className={`mb-4 ${f.iconColor}`}>{f.icon}</div>
                             <h3 className="text-base font-semibold mb-2">{f.title}</h3>
                             <p className="text-sm text-muted-foreground leading-relaxed">{f.desc}</p>
-                            <div className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-primary opacity-0 group-hover:opacity-100 transition-opacity">
-                                Learn more <ChevronRight className="h-3 w-3" />
-                            </div>
                         </div>
                     ))}
                 </div>
@@ -327,7 +324,7 @@ export default function Home() {
                 <div className="relative rounded-2xl border border-primary/20 bg-primary/5 p-10 text-center overflow-hidden">
                     <h2 className="text-3xl font-bold sm:text-4xl mb-4">Ready to ace your exams?</h2>
                     <p className="text-muted-foreground mb-8 max-w-lg mx-auto">
-                        Generate your first AI-powered mock paper in under a minute. No signup required.
+                        Generate an AI-powered mock paper grounded in real past papers. No signup required.
                     </p>
                     <Link
                         href="/generate"
@@ -339,51 +336,6 @@ export default function Home() {
                 </div>
             </section>
 
-            {/* ─── FOOTER ─── */}
-            <footer className="border-t border-border">
-                <div className="container mx-auto max-w-6xl px-4 py-10">
-                    <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
-                        <div className="col-span-2 md:col-span-1">
-                            <Link href="/" className="flex items-center gap-2 font-bold text-lg mb-3">
-                                <BookOpen className="h-5 w-5 text-primary" />
-                                PrepWise
-                            </Link>
-                            <p className="text-xs text-muted-foreground leading-relaxed max-w-44">
-                                Revolutionizing the way scholars study with AI-driven precision.
-                            </p>
-                        </div>
-                        <div>
-                            <h4 className="text-sm font-semibold mb-3">Product</h4>
-                            <ul className="space-y-2 text-sm text-muted-foreground">
-                                <li><Link href="/generate" className="hover:text-foreground transition-colors">Generate Paper</Link></li>
-                                <li><Link href="/papers" className="hover:text-foreground transition-colors">Browse Papers</Link></li>
-                                <li><Link href="/syllabus" className="hover:text-foreground transition-colors">Syllabus Manager</Link></li>
-                                <li><Link href="/upload" className="hover:text-foreground transition-colors">Upload Papers</Link></li>
-                            </ul>
-                        </div>
-                        <div>
-                            <h4 className="text-sm font-semibold mb-3">Company</h4>
-                            <ul className="space-y-2 text-sm text-muted-foreground">
-                                <li>About Us</li>
-                                <li>Privacy Policy</li>
-                                <li>Contact</li>
-                            </ul>
-                        </div>
-                        <div>
-                            <h4 className="text-sm font-semibold mb-3">Quick Links</h4>
-                            <ul className="space-y-2 text-sm text-muted-foreground">
-                                <li><Link href="/generate" className="hover:text-foreground transition-colors">Try Generate</Link></li>
-                                <li><Link href="/upload" className="hover:text-foreground transition-colors">Upload a paper</Link></li>
-                                <li><Link href="/syllabus" className="hover:text-foreground transition-colors">Upload syllabus</Link></li>
-                            </ul>
-                        </div>
-                    </div>
-                    <div className="mt-10 border-t border-border pt-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
-                        <span>2026 PrepWise. All rights reserved.</span>
-                        <span>Built with Next.js · FastAPI · Qdrant · Ollama</span>
-                    </div>
-                </div>
-            </footer>
         </div>
     );
 }

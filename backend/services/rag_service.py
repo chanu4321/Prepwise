@@ -1,8 +1,8 @@
 import logging
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 import requests
-from backend.services.vector_service import VectorService
-from backend.database import get_db_connection
+from services.vector_service import VectorService
+from database import get_db_connection
 
 logger = logging.getLogger(__name__)
 
@@ -188,13 +188,13 @@ OUTPUT FORMAT:
 ]"""
 
         try:
-            api_url = os.getenv("LLM_API_URL", "https://integrate.api.nvidia.com/v1/chat/completions")
+            api_url = os.getenv("LLM_API_URL") or "https://integrate.api.nvidia.com/v1/chat/completions"
             headers = {
                 "Authorization": f"Bearer {os.getenv('NVIDIA_API_KEY', '')}",
                 "Content-Type": "application/json"
             }
             payload = {
-                "model": os.getenv("LLM_MODEL") or "qwen/qwen3-next-80b-a3b-thinking",
+                "model": os.getenv("LLM_MODEL") or "z-ai/glm-5.3-flash",
                 "messages": [{"role": "user", "content": batch_prompt}],
                 "temperature": 0.6,
                 "top_p": 0.7,
@@ -314,7 +314,7 @@ OUTPUT FORMAT:
             system_instruction = f"You are an expert exam question generator for {subject}. Generate a single examination question based on the user's requirements."
             
             chat_payload = {
-                "model": os.getenv("LLM_MODEL") or "qwen/qwen3-next-80b-a3b-thinking",
+                "model": os.getenv("LLM_MODEL") or "z-ai/glm-5.3-flash",
                 "messages": [
                     {"role": "user", "content": f"{system_instruction}\n\nTask: {prompt}"}
                 ],
@@ -328,13 +328,13 @@ OUTPUT FORMAT:
                 "Content-Type": "application/json"
             }
             
-            api_url = os.getenv("LLM_API_URL", "https://integrate.api.nvidia.com/v1/chat/completions")
+            api_url = os.getenv("LLM_API_URL") or "https://integrate.api.nvidia.com/v1/chat/completions"
             
             response = requests.post(
                 api_url,
                 headers=headers,
                 json=chat_payload,
-                timeout=60
+                timeout=1000
             )
             
             if response.status_code == 200:
@@ -502,7 +502,7 @@ OUTPUT FORMAT:
             "severity": severity
         }
 
-    def _build_question_prompt(self, subject: str, bloom_level: str, marks: int, parts: List[Dict], context: str, module: str = None) -> str:
+    def _build_question_prompt(self, subject: str, bloom_level: str, marks: int, parts: List[Dict], context: str, module: Optional[str] = None) -> str:
         """Build RAG prompt for question generation."""
         verb = BLOOM_VERBS.get(bloom_level, ["Explain"])[0]
         

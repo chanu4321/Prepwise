@@ -1,10 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from backend.api.routes import router as api_router
+from api.routes import router as api_router
 
 app = FastAPI(
-    title="Academic Repository API",
-    description="Backend for AI-enhanced question paper repository",
+    title="PrepWise API",
+    description="Backend for the PrepWise past-paper repository and mock paper generator",
     version="0.1.0"
 )
 
@@ -21,7 +21,7 @@ app.include_router(api_router, prefix="/api/v1")
 
 @app.get("/")
 def read_root():
-    return {"message": "Academic Repository API is running"}
+    return {"message": "PrepWise API is running"}
 
 @app.get("/health")
 def health_check():

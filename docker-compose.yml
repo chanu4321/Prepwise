@@ -4,9 +4,12 @@ services:
     container_name: prepwise-backend
     environment:
       DATABASE_URL: ${DATABASE_URL}
-      LLM_API_URL: ${LLLM_API_URL}
+      LLM_API_URL: ${LLM_API_URL}
+      LLM_MODEL: ${LLM_MODEL}
       NVIDIA_API_KEY: ${NVIDIA_API_KEY}
       NVIDIA_EMBED_API_KEY: ${NVIDIA_EMBED_API_KEY}
+      EMBEDDING_API_URL: ${EMBEDDING_API_URL}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL}
       PORT: "8000"
       QDRANT_API_KEY: ${QDRANT_API_KEY}
       QDRANT_URL: ${QDRANT_URL}

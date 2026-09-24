@@ -1,16 +1,41 @@
 import logging
+import os
 import requests
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
-from backend.database import qdrant_client
+from database import qdrant_client
 
 logger = logging.getLogger(__name__)
 
 # Constants
 # OLLAMA_URL = "http://127.0.0.1:11434/api/embeddings"
 # EMBEDDING_MODEL = "nomic-embed-text"
-COLLECTION_NAME = "papers"
-VECTOR_SIZE = 4096  # nv-embed-v1 dimension size
+COLLECTION_NAME = os.getenv("QDRANT_COLLECTION") or "papers"
+VECTOR_SIZE = int(os.getenv("EMBEDDING_DIM") or 2048)  # nemotron-3-embed-1b output size
+
+
+def embed_text(text: str, input_type: str = "passage"):
+    """Generates an embedding vector using the API. Use input_type="query" for search queries."""
+    api_url = os.getenv("EMBEDDING_API_URL") or "https://integrate.api.nvidia.com/v1/embeddings"
+    headers = {
+        "Authorization": f"Bearer {os.getenv('NVIDIA_EMBED_API_KEY', '')}",
+        "Content-Type": "application/json"
+    }
+    try:
+        response = requests.post(api_url, headers=headers, json={
+            "model": os.getenv("EMBEDDING_MODEL") or "nvidia/nemotron-3-embed-1b",
+            "input": text,
+            "input_type": input_type
+        }, timeout=30)
+        if response.status_code == 200:
+            data = response.json()
+            return data.get("data", [{}])[0].get("embedding", [])
+        else:
+            logger.error(f"Embedding API Error: {response.text}")
+            return None
+    except Exception as e:
+        logger.error(f"Embedding generation failed: {e}")
+        return None
 
 
 class VectorService:
@@ -33,32 +58,20 @@ class VectorService:
                     )
                 )
                 logger.info(f"Created Qdrant collection: {COLLECTION_NAME}")
+            else:
+                vectors = self.client.get_collection(COLLECTION_NAME).config.params.vectors
+                size = getattr(vectors, "size", None)
+                if size != VECTOR_SIZE:
+                    logger.error(
+                        f"Qdrant collection '{COLLECTION_NAME}' holds {size}-dim vectors but the embedding "
+                        f"model produces {VECTOR_SIZE}. Migrate with: python backend/dev-scripts/manage_db.py reembed"
+                    )
         except Exception as e:
             logger.error(f"Failed to check/create Qdrant collection: {e}")
 
-    def get_embedding(self, text: str):
+    def get_embedding(self, text: str, input_type: str = "passage"):
         """Generates embedding vector using API."""
-        import os
-        api_url = os.getenv("EMBEDDING_API_URL") or "https://integrate.api.nvidia.com/v1/embeddings"
-        headers = {
-            "Authorization": f"Bearer {os.getenv('NVIDIA_EMBED_API_KEY', '')}",
-            "Content-Type": "application/json"
-        }
-        try:
-            response = requests.post(api_url, headers=headers, json={
-                "model": os.getenv("EMBEDDING_MODEL") or "nvidia/nv-embed-v1",
-                "input": text,
-                "input_type": "passage"
-            }, timeout=30)
-            if response.status_code == 200:
-                data = response.json()
-                return data.get("data", [{}])[0].get("embedding", [])
-            else:
-                logger.error(f"Embedding API Error: {response.text}")
-                return None
-        except Exception as e:
-            logger.error(f"Embedding generation failed: {e}")
-            return None
+        return embed_text(text, input_type)
 
     def upsert_paper(self, paper_id: int, text: str, metadata: dict):
         """Uploads paper vector and metadata to Qdrant."""
@@ -88,7 +101,7 @@ class VectorService:
 
     def search_similar(self, query: str, limit: int = 5, with_payload: bool = True):
         """Searches for similar papers using vector similarity."""
-        vector = self.get_embedding(query)
+        vector = self.get_embedding(query, input_type="query")
         if not vector:
             return []
 
