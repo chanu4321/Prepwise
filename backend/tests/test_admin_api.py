@@ -27,4 +27,6 @@ def test_unknown_user_and_empty_update(client, auth_headers):
     admin = auth_headers(role="admin")
     assert client.patch("/api/v1/admin/users/9999", json={"verified": True}, headers=admin).status_code == 404
     assert client.patch("/api/v1/admin/users/1", json={}, headers=admin).status_code == 400
-    assert client.patch("/api/v1/admin/users/1", json={"role": "superuser"}, headers=admin).status_code == 422
+    response = client.patch("/api/v1/admin/users/1", json={"role": "superuser"}, headers=admin)
+    assert response.status_code == 422
+    assert response.json()["code"] == "invalid_request"

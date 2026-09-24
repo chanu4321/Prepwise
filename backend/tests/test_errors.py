@@ -1,10 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.testclient import TestClient
+from pydantic import BaseModel
 
 from errors import GENERIC_ERROR_MESSAGE, ApiError, install_error_handling
 
 ORIGIN = "http://localhost:3000"
+
+
+class SampleRequest(BaseModel):
+    value: int
 
 
 def make_app():
@@ -19,6 +24,10 @@ def make_app():
     @app.get("/limited")
     def limited():
         raise ApiError(429, "quota_exceeded", "Daily limit reached.", headers={"Retry-After": "120"})
+
+    @app.post("/validate")
+    def validate(body: SampleRequest):
+        return {"ok": True}
 
     return app
 
@@ -42,3 +51,10 @@ def test_api_error_uses_the_standard_shape_and_keeps_headers():
 def test_main_app_exposes_retry_after_to_the_browser(client):
     response = client.get("/health", headers={"Origin": ORIGIN})
     assert "retry-after" in response.headers.get("access-control-expose-headers", "").lower()
+
+
+def test_request_validation_error_returns_standard_shape_with_cors_headers():
+    response = TestClient(make_app()).post("/validate", json={"value": "not_an_int"}, headers={"Origin": ORIGIN})
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Some of the information sent was missing or invalid.", "code": "invalid_request"}
+    assert response.headers["access-control-allow-origin"] == ORIGIN

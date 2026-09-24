@@ -1,6 +1,7 @@
 import logging
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,11 @@ class ApiError(Exception):
 async def api_error_handler(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, ApiError)
     return JSONResponse({"detail": exc.detail, "code": exc.code}, status_code=exc.status_code, headers=exc.headers)
+
+
+async def request_validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    logger.info("Request validation failed on %s %s: %s", request.method, request.url.path, [(e.get("loc"), e.get("type")) for e in exc.errors()])
+    return JSONResponse({"detail": "Some of the information sent was missing or invalid.", "code": "invalid_request"}, status_code=422)
 
 
 class CatchAllErrorsMiddleware:
@@ -60,4 +66,5 @@ class CatchAllErrorsMiddleware:
 def install_error_handling(app: FastAPI) -> None:
     """Call before adding CORSMiddleware: the last middleware added is the outermost."""
     app.add_exception_handler(ApiError, api_error_handler)
+    app.add_exception_handler(RequestValidationError, request_validation_error_handler)
     app.add_middleware(CatchAllErrorsMiddleware)
