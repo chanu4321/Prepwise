@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from services.ocr_service import DocumentProcessor
+import ntpath
 import shutil
 import os
 import logging
@@ -28,6 +29,33 @@ processor = DocumentProcessor(upload_dir="backend/papers")
 
 REQUIRED_METADATA = ("subjectCode", "subjectName", "monthYear", "time", "marks")
 METADATA_ATTEMPTS = 2
+
+_INVALID_FILENAME_CHARS = set('<>:"|?*')
+
+
+def _validated_pdf_upload(file: UploadFile) -> str:
+    """Validates the uploaded file's name and content before any quota is consumed.
+
+    Uses ntpath.basename (splits on both '/' and '\\' on every OS) so a traversal filename
+    like '../../evil.pdf' or '..\\..\\evil.pdf' collapses to a bare name. Returns that safe
+    filename, or raises ApiError(400, "invalid_file", ...).
+    """
+    name = ntpath.basename(file.filename or "")
+    if not name.lower().endswith(".pdf"):
+        raise ApiError(400, "invalid_file", "Only PDF files are supported.")
+    stem = name[:-len(".pdf")]
+    if (not stem.strip()
+            or len(name) > 200
+            or any(ord(ch) < 32 or ord(ch) == 127 for ch in name)
+            or any(ch in _INVALID_FILENAME_CHARS for ch in name)):
+        raise ApiError(400, "invalid_file",
+                       "Please rename the file using letters, numbers and simple punctuation, then upload it again.")
+
+    header = file.file.read(1024)
+    file.file.seek(0)
+    if b"%PDF" not in header:
+        raise ApiError(400, "invalid_file", "This file isn't a valid PDF.")
+    return name
 
 def _extract_metadata_with_retry(file_path: str) -> dict:
     """Header OCR + LLM metadata extraction, asking the LLM again if required fields come back empty."""
@@ -73,9 +101,7 @@ def ingest_document(
     if limit == 0:
         raise ApiError(403, "forbidden", "Paper uploads need a student or verified faculty account.")
 
-    filename = os.path.basename(file.filename or "")
-    if not filename.lower().endswith(".pdf"):
-        raise ApiError(400, "invalid_file", "Only PDF files are supported.")
+    filename = _validated_pdf_upload(file)
 
     subject = quota_subject(user, http_request)
     enforce_quota(store, subject, "upload", limit)
@@ -110,8 +136,7 @@ async def upload_syllabus(
     limit = syllabus_limit(user)
     if limit == 0:
         raise ApiError(403, "forbidden", "Syllabus uploads need a verified faculty account.")
-    if not (file.filename or "").lower().endswith(".pdf"):
-        raise ApiError(400, "invalid_file", "Only PDF files are supported.")
+    filename = _validated_pdf_upload(file)
 
     exists, owner = get_syllabus_owner(subject_code)
     if exists and user.role != "admin" and owner != user.id:
@@ -121,7 +146,7 @@ async def upload_syllabus(
     enforce_quota(store, subject, "syllabus", limit)
     result = process_and_save_syllabus(
         file_bytes=await file.read(),
-        filename=file.filename,
+        filename=filename,
         subject_code=subject_code,
         subject_name=subject_name,
         uploaded_by=user.id,
