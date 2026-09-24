@@ -33,3 +33,18 @@ def test_duplicate_emails_require_choosing_an_id():
     assert make_admin("me@outlook.com", store, input_fn=lambda _: "2", out=lambda _: None) is True
     assert store.get(1).role is None and store.get(2).role == "admin"
     assert make_admin("me@outlook.com", store, input_fn=lambda _: "", out=lambda _: None) is False
+
+
+class VanishingAccountStore(FakeUserStore):
+    """update() reports the row is gone, as PostgresUserStore does when it no longer exists."""
+
+    def update(self, user_id, role=None, verified=None):
+        return None
+
+
+def test_account_deleted_between_lookup_and_update_changes_nothing():
+    store = VanishingAccountStore()
+    store.get_or_create(Claims(tid="tenant-0", oid="oid-0", name="Person 0", email="me@outlook.com"))
+    lines = []
+    assert make_admin("me@outlook.com", store, input_fn=lambda _: "y", out=lines.append) is False
+    assert "no longer exists" in lines[-1]

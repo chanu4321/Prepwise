@@ -1,6 +1,7 @@
 """PrepWise admin commands. Run from the project root (or /app in the container):
 
     python backend/admin_cli.py make-admin you@outlook.com
+    python backend/admin_cli.py reprocess --id 7 [--apply]
 """
 import argparse
 import sys
@@ -30,7 +31,10 @@ def make_admin(email: str, store, input_fn=input, out=print) -> bool:
             out("Cancelled.")
             return False
 
-    store.update(target.id, role="admin", verified=True)
+    updated = store.update(target.id, role="admin", verified=True)
+    if updated is None:
+        out("That account no longer exists. Nothing was changed.")
+        return False
     out(f"{target.email} is now an admin.")
     return True
 
@@ -40,11 +44,21 @@ def main(argv: list[str] | None = None) -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     make_admin_parser = commands.add_parser("make-admin", help="Grant admin to an account that has signed in")
     make_admin_parser.add_argument("email")
+
+    reprocess_parser = commands.add_parser("reprocess", help="Re-run stored papers through OCR, metadata and embedding")
+    selection = reprocess_parser.add_mutually_exclusive_group(required=True)
+    selection.add_argument("--id", type=int, action="append", dest="ids", help="paper id (repeatable)")
+    selection.add_argument("--all", action="store_true", help="every paper")
+    reprocess_parser.add_argument("--apply", action="store_true", help="write changes (default: preview only)")
+
     args = parser.parse_args(argv)
 
     if args.command == "make-admin":
         from auth.users import PostgresUserStore
         return 0 if make_admin(args.email, PostgresUserStore()) else 1
+    if args.command == "reprocess":
+        from services.reprocess import run_reprocess
+        return run_reprocess(None if args.all else args.ids, apply=args.apply)
     return 1
 
 
