@@ -1,15 +1,22 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Form
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Form
+from fastapi.responses import FileResponse, StreamingResponse
 from services.ocr_service import DocumentProcessor
 import shutil
 import os
-import uuid
 import logging
 import json
 import asyncio
 
-from typing import List, Optional
-from models import PaperMetadata
+from typing import List
+
+from auth.deps import enforce_quota, get_user_store, refund_quota_if_counted, require_role, user_subject
+from auth.limits import generate_limit
+from auth.users import PostgresUserStore, User
+from database import db_cursor
+from errors import ApiError
+from services.rag_service import RAGService
+from services.syllabus_service import get_syllabus_by_code
+from services.vector_service import VectorService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -178,200 +185,113 @@ async def upload_syllabus(
         raise HTTPException(status_code=500, detail=f"Error processing syllabus: {str(e)}")
 
 @router.get("/syllabus/{subject_code}")
-async def get_syllabus(subject_code: str):
-    """Retrieves a syllabus by subject code."""
-    from services.syllabus_service import get_syllabus_by_code
-    
+def get_syllabus(subject_code: str, user: User = Depends(require_role("faculty", "admin"))):
+    """Retrieves a syllabus by subject code. Faculty only: syllabi are not public."""
     syllabus = get_syllabus_by_code(subject_code)
     if not syllabus:
-        raise HTTPException(status_code=404, detail=f"Syllabus not found for subject code: {subject_code}")
-        
+        raise ApiError(404, "not_found", f"No syllabus found for subject code {subject_code}.")
     return {"success": True, "data": syllabus}
 
 @router.get("/documents", response_model=List[dict])
-async def get_documents():
+def get_documents():
     """Fetch all documents from NeonDB for the frontend."""
-    try:
-        from database import get_db_connection
-        conn = get_db_connection()
-        cur = conn.cursor()
+    with db_cursor() as cur:
         cur.execute("SELECT id, filename, subject_code, subject_name, semester, year, time, marks FROM papers ORDER BY id DESC")
         rows = cur.fetchall()
-        
-        papers = []
-        for row in rows:
-            papers.append({
-                "id": row[0],
-                "filename": row[1],
-                "subjectCode": row[2],
-                "subjectName": row[3],
-                "semester": row[4],
-                "year": row[5],
-                "time": row[6],
-                "marks": row[7]
-            })
-        
-        cur.close()
-        conn.close()
-        return papers
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return [
+        {"id": row[0], "filename": row[1], "subjectCode": row[2], "subjectName": row[3],
+         "semester": row[4], "year": row[5], "time": row[6], "marks": row[7]}
+        for row in rows
+    ]
 
 @router.get("/documents/{paper_id}/download")
-async def download_paper(paper_id: int):
+def download_paper(paper_id: int):
     """Download a paper PDF by ID."""
-    try:
-        from database import get_db_connection
-        from fastapi.responses import FileResponse
-        
-        conn = get_db_connection()
-        cur = conn.cursor()
+    with db_cursor() as cur:
         cur.execute("SELECT file_path, filename FROM papers WHERE id = %s", (paper_id,))
-        result = cur.fetchone()
-        cur.close()
-        conn.close()
-        
-        if not result:
-            raise HTTPException(status_code=404, detail="Paper not found")
-        
-        file_path, filename = result
-        
-        if not os.path.exists(file_path):
-            raise HTTPException(status_code=404, detail="File not found on disk")
-        
-        return FileResponse(
-            path=file_path,
-            filename=filename,
-            media_type="application/pdf"
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        row = cur.fetchone()
+    if not row:
+        raise ApiError(404, "not_found", "Paper not found.")
+    file_path, filename = row
+    if not os.path.exists(file_path):
+        logger.error("Paper %s is in the database but missing on disk at %s", paper_id, file_path)
+        raise ApiError(404, "not_found", "This paper's file is missing.")
+    return FileResponse(path=file_path, filename=filename, media_type="application/pdf")
 
 @router.post("/search/semantic")
-async def semantic_search(request: dict):
-    """
-    Search for papers semantically using Qdrant and NeonDB.
-    """
+def semantic_search(request: dict):
+    """Search for papers semantically using Qdrant and NeonDB."""
     query = request.get("query", "")
     limit = request.get("limit", 5)
-    try:
-        from services.vector_service import VectorService
-        from database import get_db_connection
-        
-        # 1. Get similar paper IDs from Qdrant
-        vector_service = VectorService()
-        results = vector_service.search_similar(query, limit)
-        
-        if not results:
-            return []
-            
-        paper_ids = [point.id for point in results]
-        
-        # 2. Fetch full details from NeonDB
-        conn = get_db_connection()
-        cur = conn.cursor()
-        
-        # Safe SQL query for multiple IDs
-        if not paper_ids:
-            return []
-            
-        query_placeholder = ','.join(['%s'] * len(paper_ids))
+    results = VectorService().search_similar(query, limit)
+    if not results:
+        return []
+
+    paper_ids = [point.id for point in results]
+    scores = {point.id: point.score for point in results}
+    placeholders = ",".join(["%s"] * len(paper_ids))
+    with db_cursor() as cur:
         cur.execute(
-            f"SELECT id, filename, subject_code, subject_name, semester, year, time, marks FROM papers WHERE id IN ({query_placeholder})",
-            tuple(paper_ids)
+            f"SELECT id, filename, subject_code, subject_name, semester, year, time, marks FROM papers WHERE id IN ({placeholders})",
+            tuple(paper_ids),
         )
         rows = cur.fetchall()
-        
-        # 3. Map results back to order of relevance (Qdrant order)
-        db_papers = {row[0]: {
-            "id": row[0],
-            "filename": row[1],
-            "subjectCode": row[2],
-            "subjectName": row[3],
-            "semester": row[4],
-            "year": row[5],
-            "time": row[6],
-            "marks": row[7],
-            "relevance": next((r.score for r in results if r.id == row[0]), 0)
-        } for row in rows}
-        
-        # Return in order of Qdrant results
-        ordered_response = [db_papers[pid] for pid in paper_ids if pid in db_papers]
-        
-        cur.close()
-        conn.close()
-        
-        return ordered_response
-        
-    except Exception as e:
-        print(f"Semantic Search Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+
+    papers = {
+        row[0]: {"id": row[0], "filename": row[1], "subjectCode": row[2], "subjectName": row[3], "semester": row[4],
+                 "year": row[5], "time": row[6], "marks": row[7], "relevance": scores.get(row[0], 0)}
+        for row in rows
+    }
+    # Return in order of Qdrant relevance
+    return [papers[pid] for pid in paper_ids if pid in papers]
+
+def _sse(payload: dict) -> str:
+    return f"data: {json.dumps(payload)}\n\n"
 
 @router.post("/generate/mock-paper")
-async def generate_mock_paper(request: dict):
-    """
-    Generate a mock examination paper using RAG.
-    
-    Request body:
-    {
-      "subject": "Software Project Management",
-      "sections": [
-        {
-          "name": "Section A",
-          "instruction": "Attempt any 4 out of 5",
-          "bloomMode": "simple",
-          "difficulty": "easy",
-          "questions": [
-            {
-              "number": 1,
-              "bloomLevel": "remember",
-              "totalMarks": 6,
-              "parts": [{"label": "a", "marks": 3}, {"label": "b", "marks": 3}]
-            }
-          ]
-        }
-      ]
-    }
-    """
+def generate_mock_paper(
+    request: dict,
+    user: User = Depends(require_role("faculty", "admin")),
+    store: PostgresUserStore = Depends(get_user_store),
+):
+    """Generate a mock examination paper using RAG (non-streaming)."""
+    if "subject" not in request or "sections" not in request:
+        raise ApiError(400, "invalid_request", "Missing required fields: subject, sections")
+
+    subject_key = user_subject(user)
+    limit = generate_limit(user)
+    enforce_quota(store, subject_key, "generate", limit)
     try:
-        from services.rag_service import RAGService
-        
-        # Validate required fields
-        if "subject" not in request or "sections" not in request:
-            raise HTTPException(status_code=400, detail="Missing required fields: subject, sections")
-        
-        # Initialize RAG service
-        rag_service = RAGService()
-        
-        # Generate mock paper
-        result = rag_service.generate_mock_paper(request)
-        
-        if "error" in result:
-            raise HTTPException(status_code=404, detail=result["error"])
-        
-        return result
-        
-    except HTTPException:
+        result = RAGService().generate_mock_paper(request)
+    except Exception:
+        refund_quota_if_counted(store, subject_key, "generate", limit)
         raise
-    except Exception as e:
-        print(f"Mock Paper Generation Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    if "error" in result:
+        refund_quota_if_counted(store, subject_key, "generate", limit)
+        raise ApiError(404, "not_found", "No past papers found for this subject yet.")
+    return result
 
 @router.post("/generate/mock-paper-stream")
-async def generate_mock_paper_stream(request: dict):
+async def generate_mock_paper_stream(
+    request: dict,
+    user: User = Depends(require_role("faculty", "admin")),
+    store: PostgresUserStore = Depends(get_user_store),
+):
     """
     SSE streaming endpoint: generates one question at a time and streams each
     back as a Server-Sent Event so Cloudflare/nginx timeouts are never hit.
     """
     if "subject" not in request or "sections" not in request:
-        raise HTTPException(status_code=400, detail="Missing required fields: subject, sections")
+        raise ApiError(400, "invalid_request", "Missing required fields: subject, sections")
+
+    subject_key = user_subject(user)
+    limit = generate_limit(user)
+    enforce_quota(store, subject_key, "generate", limit)
 
     async def event_stream():
+        real_questions = 0
         try:
             import copy, math
-            from services.rag_service import RAGService
 
             rag_service = RAGService()
             subject = request["subject"]
@@ -380,12 +300,12 @@ async def generate_mock_paper_stream(request: dict):
             # Retrieve context once upfront
             similar_papers = rag_service._retrieve_similar_papers(subject, limit=3)
             if not similar_papers:
-                yield f"data: {json.dumps({'type': 'error', 'message': 'No similar papers found'})}\n\n"
+                yield _sse({"type": "error", "message": "No past papers found for this subject yet."})
                 return
             context = rag_service._extract_paper_context(similar_papers)
 
             # Send metadata first so frontend knows source papers
-            yield f"data: {json.dumps({'type': 'meta', 'sourcePapers': [p['filename'] for p in similar_papers], 'subject': subject})}\n\n"
+            yield _sse({"type": "meta", "sourcePapers": [p["filename"] for p in similar_papers], "subject": subject})
             await asyncio.sleep(0)  # flush to client
 
             result_sections = []
@@ -415,14 +335,18 @@ async def generate_mock_paper_stream(request: dict):
                 # Stream each question as it's generated
                 for q_config in questions_config:
                     q = rag_service._generate_question(q_config, context, subject, bloom_dist)
+                    if not q.get("error"):
+                        real_questions += 1
                     generated_questions.append(q)
-                    yield f"data: {json.dumps({'type': 'question', 'section': section_name, 'is_pool': False, 'question': q})}\n\n"
+                    yield _sse({"type": "question", "section": section_name, "is_pool": False, "question": q})
                     await asyncio.sleep(0)
 
                 for q_config in pool_configs:
                     q = rag_service._generate_question(q_config, context, subject, bloom_dist)
+                    if not q.get("error"):
+                        real_questions += 1
                     pool_questions.append(q)
-                    yield f"data: {json.dumps({'type': 'question', 'section': section_name, 'is_pool': True, 'question': q})}\n\n"
+                    yield _sse({"type": "question", "section": section_name, "is_pool": True, "question": q})
                     await asyncio.sleep(0)
 
                 result_sections.append({
@@ -433,11 +357,16 @@ async def generate_mock_paper_stream(request: dict):
                 })
 
             # Final event with complete assembled paper
-            yield f"data: {json.dumps({'type': 'done', 'sections': result_sections, 'subject': subject, 'sourcePapers': [p['filename'] for p in similar_papers]})}\n\n"
+            yield _sse({"type": "done", "sections": result_sections, "subject": subject,
+                        "sourcePapers": [p["filename"] for p in similar_papers]})
 
-        except Exception as e:
-            logger.error(f"Streaming generation error: {e}")
-            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+        except Exception:
+            logger.exception("Streaming generation failed for subject %r", request.get("subject"))
+            yield _sse({"type": "error", "message": "Paper generation failed. Please try again."})
+        finally:
+            # A run that produced no usable question doesn't count against the daily limit
+            if real_questions == 0:
+                refund_quota_if_counted(store, subject_key, "generate", limit)
 
     return StreamingResponse(
         event_stream(),
