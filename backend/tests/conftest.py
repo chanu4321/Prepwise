@@ -87,3 +87,30 @@ def make_token(rsa_keys):
         return jwt.encode(claims, rsa_keys[0], algorithm="RS256", headers={"kid": "test-key"})
 
     return _make
+
+
+import uuid  # noqa: E402
+
+
+@pytest.fixture
+def store(client):
+    from auth.deps import get_user_store
+    from tests.fakes import FakeUserStore
+
+    fake = FakeUserStore()
+    client.app.dependency_overrides[get_user_store] = lambda: fake
+    return fake
+
+
+@pytest.fixture
+def auth_headers(store, make_token):
+    """Returns Authorization headers for a new user with the given role (None = hasn't picked yet)."""
+    from auth.tokens import Claims
+
+    def _headers(role=None, verified=False):
+        oid = f"oid-{uuid.uuid4()}"
+        user = store.get_or_create(Claims(tid=TEST_TID, oid=oid, name="Test User", email=f"{oid}@example.com"))
+        store.update(user.id, role=role, verified=verified)
+        return {"Authorization": f"Bearer {make_token(oid=oid)}"}
+
+    return _headers
