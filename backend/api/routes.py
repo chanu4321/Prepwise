@@ -248,6 +248,14 @@ def semantic_search(request: dict):
 def _sse(payload: dict) -> str:
     return f"data: {json.dumps(payload)}\n\n"
 
+def _has_usable_question(sections: list) -> bool:
+    """True if any question (in a section's `questions` or `pool` list) isn't a flagged fallback."""
+    for section in sections:
+        for question in section.get("questions", []) + section.get("pool", []):
+            if not question.get("error"):
+                return True
+    return False
+
 @router.post("/generate/mock-paper")
 def generate_mock_paper(
     request: dict,
@@ -269,6 +277,8 @@ def generate_mock_paper(
     if "error" in result:
         refund_quota_if_counted(store, subject_key, "generate", limit)
         raise ApiError(404, "not_found", "No past papers found for this subject yet.")
+    if not _has_usable_question(result.get("sections", [])):
+        refund_quota_if_counted(store, subject_key, "generate", limit)
     return result
 
 @router.post("/generate/mock-paper-stream")

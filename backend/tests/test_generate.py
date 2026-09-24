@@ -97,6 +97,13 @@ def test_plain_generation_without_papers_is_404_and_refunded(client, auth_header
     assert sum(store.usage.values()) == 0
 
 
+def test_plain_generation_refunds_when_every_question_failed(client, auth_headers, store, fake_rag):
+    fake_rag.question_error = True
+    response = client.post(PLAIN, json=BODY, headers=auth_headers(role="faculty"))
+    assert response.status_code == 200
+    assert sum(store.usage.values()) == 0
+
+
 def test_missing_fields_are_400_without_using_quota(client, auth_headers, store):
     response = client.post(STREAM, json={"subject": "x"}, headers=auth_headers(role="faculty"))
     assert response.status_code == 400 and response.json()["code"] == "invalid_request"

@@ -104,7 +104,20 @@ class FakeRag:
     def generate_mock_paper(self, config):
         if not self.papers:
             return {"error": "No similar papers found in database"}
-        return {"subject": config["subject"], "sections": [], "sourcePapers": ["SPM 2023.pdf"], "totalSections": 0}
+        sections = []
+        for section in config.get("sections", []):
+            questions = [
+                self._generate_question(qc, "context", config["subject"], {})
+                for qc in section.get("questions", [])
+            ]
+            sections.append({
+                "name": section.get("name", "Section"),
+                "instruction": section.get("instruction", ""),
+                "questions": questions,
+                "pool": [],
+            })
+        return {"subject": config["subject"], "sections": sections, "sourcePapers": ["SPM 2023.pdf"],
+                "totalSections": len(sections)}
 
 
 @contextmanager
