@@ -4,7 +4,8 @@ import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from auth.tokens import Claims, TokenError, verify_access_token
+from auth import tokens
+from auth.tokens import Claims, TokenError, verify_access_token, _get_jwks_client as real_get_jwks_client
 from tests.conftest import TEST_TID
 
 PERSONAL_TID = "9188040d-6c67-4c5b-b112-36a304b66dad"
@@ -60,3 +61,25 @@ def test_missing_client_id_configuration_is_rejected(make_token, monkeypatch):
     monkeypatch.delenv("AZURE_CLIENT_ID")
     with pytest.raises(TokenError):
         verify_access_token(make_token())
+
+
+def test_jwks_client_does_not_lru_cache_keys(monkeypatch):
+    """Verify that get_signing_key is not lru-cached forever.
+
+    PyJWKClient with cache_keys=True would wrap get_signing_key with lru_cache,
+    causing withdrawn keys (e.g., after compromise) to be accepted until restart.
+    The JWK set itself is cached for lifespan=3600, which is correct;
+    unknown key IDs trigger a refetch of the set.
+    """
+    # Reset the global client so we build a fresh PyJWKClient
+    monkeypatch.setattr(tokens, "_jwks_client", None)
+
+    # Build a real PyJWKClient (no network I/O)
+    client = real_get_jwks_client()
+
+    # Verify the JWK set is cached (by design)
+    assert client.jwk_set_cache is not None, "JWK set should be cached"
+
+    # Verify get_signing_key is NOT lru-cached (no cache_info attribute)
+    assert not hasattr(client.get_signing_key, "cache_info"), \
+        "get_signing_key should not be lru-cached; withdrawn keys would be accepted until restart"

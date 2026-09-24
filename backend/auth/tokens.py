@@ -27,8 +27,10 @@ _jwks_client: PyJWKClient | None = None
 def _get_jwks_client() -> PyJWKClient:
     global _jwks_client
     if _jwks_client is None:
-        # Keys are cached; an unknown key id triggers a refetch.
-        _jwks_client = PyJWKClient(JWKS_URL, cache_keys=True, lifespan=3600)
+        # The JWK set is cached for lifespan=3600 (1 hour); an unknown key id triggers a refetch.
+        # We do not use cache_keys=True to ensure withdrawn keys (e.g., after compromise)
+        # are not accepted indefinitely until process restart.
+        _jwks_client = PyJWKClient(JWKS_URL, lifespan=3600)
     return _jwks_client
 
 
