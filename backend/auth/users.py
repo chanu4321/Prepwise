@@ -113,7 +113,9 @@ class PostgresUserStore:
         ]
 
     def consume_quota(self, subject: str, action: str, limit: int) -> bool:
-        """Atomically counts one use; False (and nothing counted) once the limit is reached."""
+        """Atomically counts one use; False (and nothing counted) once the limit is reached. A limit of 0 or less always refuses."""
+        if limit <= 0:
+            return False
         with db_cursor() as cur:
             cur.execute(
                 f"""
