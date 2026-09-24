@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.routes import router as api_router
+from api.me import router as me_router
 from errors import install_error_handling
 from database import init_db
 
@@ -42,6 +43,7 @@ app.add_middleware(
 )
 
 app.include_router(api_router, prefix="/api/v1")
+app.include_router(me_router, prefix="/api/v1")
 
 @app.get("/")
 def read_root():
