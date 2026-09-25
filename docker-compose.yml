@@ -21,7 +21,8 @@ services:
       UPLOAD_LIMIT_STUDENT: ${UPLOAD_LIMIT_STUDENT:-20}
       UPLOAD_LIMIT_FACULTY: ${UPLOAD_LIMIT_FACULTY:-10}
       SYLLABUS_LIMIT: ${SYLLABUS_LIMIT:-10}
-      # The container is only reachable through nginx on this network, so trust its X-Forwarded-For
+      # Trust X-Forwarded-For from any peer: safe only while this service publishes no ports
+      # and only nginx shares nginx-network. If either changes, set this to nginx's address.
       FORWARDED_ALLOW_IPS: "*"
     hostname: prepwise
     image: ghcr.io/chanu4321/prepwise-backend:latest

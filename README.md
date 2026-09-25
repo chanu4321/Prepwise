@@ -227,12 +227,12 @@ docker exec -it prepwise-backend python backend/admin_cli.py reprocess --all   #
 
 ### Deployment note
 
-nginx must *overwrite* the client IP header (`proxy_set_header X-Forwarded-For $remote_addr;`, or `$http_cf_connecting_ip` behind Cloudflare) so visitors can't fake their IP to reset the anonymous limit.
+nginx must *overwrite* the client IP header (`proxy_set_header X-Forwarded-For $remote_addr;`, or `$http_cf_connecting_ip` behind Cloudflare) so visitors can't fake their IP to reset the anonymous limit. The backend trusts `X-Forwarded-For` from any peer, which is safe only while the backend service publishes no `ports:` and only nginx shares its `nginx-network` — if either changes, restrict `FORWARDED_ALLOW_IPS` to nginx's address.
 
 ### Tests
 
 ```bash
-python -m pip install -r backend/requirements-dev.txt && python -m pytest
+python -m pip install -r backend/requirements.txt -r backend/requirements-dev.txt && python -m pytest
 ```
 
 An optional `TEST_DATABASE_URL` runs the SQL quota test against a real Postgres database (e.g. a Neon branch) — never production. Run `python -m pytest` locally and make sure it passes before merging a pull request; the `test` job in CI runs on pushes to `default` and gates the image build, it does not run on pull requests.
