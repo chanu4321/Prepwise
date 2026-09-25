@@ -10,8 +10,8 @@ from services.paper_store import PaperRow, get_papers, update_paper_metadata
 
 logger = logging.getLogger(__name__)
 
-STATUSES = ("preview", "updated", "skipped", "failed")
-_MARKERS = {"preview": "*", "updated": "+", "skipped": "-", "failed": "x"}
+STATUSES = ("preview", "updated", "unchanged", "skipped", "failed")
+_MARKERS = {"preview": "*", "updated": "+", "unchanged": "=", "skipped": "-", "failed": "x"}
 
 
 @dataclass
@@ -40,6 +40,8 @@ def reprocess_paper(row: PaperRow, processor, vector_service, update_metadata, a
         merged = merge_fields(row.fields, to_paper_fields(extracted.get("metadata")))
         changes = diff_fields(row.fields, merged)
         if not apply:
+            if not changes:
+                return ReprocessResult(row.id, row.filename, "unchanged", changes, "metadata already up to date")
             return ReprocessResult(row.id, row.filename, "preview", changes)
 
         full_text = processor.extract_full_text(row.file_path)
@@ -50,8 +52,15 @@ def reprocess_paper(row: PaperRow, processor, vector_service, update_metadata, a
                    "year": merged["year"], "filename": row.filename}
         if not vector_service.upsert_paper_vector(row.id, vector, full_text, payload):
             return ReprocessResult(row.id, row.filename, "failed", changes, "Qdrant update failed; nothing was changed")
-        if changes:
+        if not changes:
+            return ReprocessResult(row.id, row.filename, "unchanged", changes,
+                                   "metadata already up to date; search index refreshed")
+        try:
             update_metadata(row.id, merged)
+        except Exception:
+            logger.exception("Saving metadata for paper %s failed", row.id)
+            return ReprocessResult(row.id, row.filename, "failed", changes,
+                                   "search index updated but saving the metadata failed; re-run this paper")
         return ReprocessResult(row.id, row.filename, "updated", changes)
     except Exception as error:
         logger.exception("Reprocessing paper %s failed", row.id)
