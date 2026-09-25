@@ -227,7 +227,37 @@ docker exec -it prepwise-backend python backend/admin_cli.py reprocess --all   #
 
 ### Deployment note
 
-nginx must *overwrite* the client IP header (`proxy_set_header X-Forwarded-For $remote_addr;`, or `$http_cf_connecting_ip` behind Cloudflare) so visitors can't fake their IP to reset the anonymous limit. The backend trusts `X-Forwarded-For` from any peer, which is safe only while the backend service publishes no `ports:` and only nginx shares its `nginx-network` — if either changes, restrict `FORWARDED_ALLOW_IPS` to nginx's address.
+nginx must *overwrite* the client IP header (`proxy_set_header X-Forwarded-For $remote_addr;`) so visitors can't fake their IP to reset the anonymous limit. The backend trusts `X-Forwarded-For` from any peer, which is safe only while the backend service publishes no `ports:` and only nginx shares its `nginx-network` — if either changes, restrict `FORWARDED_ALLOW_IPS` to nginx's address.
+
+**Behind Cloudflare:** trusting `CF-Connecting-IP` (or `$http_cf_connecting_ip`) blindly is unsafe if the origin is reachable directly — anyone can set their own `CF-Connecting-IP` header and get unlimited anonymous upload buckets. Only take it from requests that actually came from Cloudflare, by restricting `set_real_ip_from` to [Cloudflare's published IP ranges](https://www.cloudflare.com/ips/), then forward the result as `X-Forwarded-For`:
+
+```nginx
+# Repeat set_real_ip_from for every range at https://www.cloudflare.com/ips/
+set_real_ip_from 173.245.48.0/20;
+set_real_ip_from 103.21.244.0/22;
+# ... (all Cloudflare IPv4 and IPv6 ranges)
+real_ip_header CF-Connecting-IP;
+
+location / {
+    proxy_set_header X-Forwarded-For $remote_addr;  # now the real client IP
+    proxy_pass http://prepwise-backend:8000;
+}
+```
+
+Or firewall the origin so only Cloudflare's IP ranges can reach it, so `CF-Connecting-IP` can't be forged by a direct request.
+
+### Before merging to `default` (merging deploys)
+
+Pushing to `default` builds the backend image and Vercel deploys the frontend, so do these first:
+
+1. Register the Entra app (see Setup above) and pass the manual sign-in checks locally.
+2. On the server, add `AZURE_CLIENT_ID` and `IP_HASH_SALT` (a long random string) to the `.env`, and copy the updated `docker-compose.yml` there (it passes the new variables and `FORWARDED_ALLOW_IPS` to the container).
+3. Set `NEXT_PUBLIC_AZURE_CLIENT_ID` in Vercel's project environment variables.
+4. Apply the nginx real-IP config above.
+5. Run `python -m pytest` locally.
+6. After the new container starts, check its log for "Database initialisation failed" (the tables are created at startup and it isn't retried), then run `make-admin` for your account.
+
+Without the Entra/Vercel settings, generation and syllabus upload become unavailable to everyone (they now require faculty sign-in). Without `IP_HASH_SALT`, anonymous uploads fail with a 500.
 
 ### Tests
 
