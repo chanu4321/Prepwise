@@ -1,3 +1,5 @@
+import base64
+import io
 import os
 import json
 import logging
@@ -14,10 +16,94 @@ logger = logging.getLogger(__name__)
 # OLLAMA_URL = "http://127.0.0.1:11434/api/generate"
 STOP_KEYWORDS = ["SECTION-A", "Section A", "SECTION - A", "Section-A", "attempt", "Attempt", "ATTEMPT"]
 
+# Hosted NVIDIA NIM OCR model; authenticated with NVIDIA_API_KEY
+OCR_URL = "https://ai.api.nvidia.com/v1/cv/nvidia/nemotron-ocr-v2"
+OCR_MAX_WIDTH = 1000  # larger uploads get dropped by the API (1500px pages failed)
+OCR_JPEG_QUALITY = 85
+OCR_TIMEOUT_SECONDS = 60
+
+
+def page_to_jpeg_base64(page: Image.Image) -> str:
+    """Encodes a page as a base64 JPEG no wider than OCR_MAX_WIDTH."""
+    if page.width > OCR_MAX_WIDTH:
+        page = page.resize((OCR_MAX_WIDTH, round(page.height * OCR_MAX_WIDTH / page.width)))
+    buffer = io.BytesIO()
+    page.convert("RGB").save(buffer, format="JPEG", quality=OCR_JPEG_QUALITY)
+    return base64.b64encode(buffer.getvalue()).decode("ascii")
+
+
+def lines_from_detections(detections: list[dict]) -> str:
+    """Orders nemotron's text boxes top to bottom, joining boxes on the same line left to right."""
+    boxes = []
+    for detection in detections:
+        points = detection["bounding_box"]["points"]
+        ys = [point["y"] for point in points]
+        boxes.append({
+            "text": detection["text_prediction"]["text"],
+            "y": sum(ys) / len(ys),
+            "height": max(ys) - min(ys),
+            "x": min(point["x"] for point in points),
+        })
+    boxes.sort(key=lambda b: b["y"])
+
+    lines: list[list[dict]] = []
+    for b in boxes:
+        previous = lines[-1][-1] if lines else None
+        if previous is not None and abs(b["y"] - previous["y"]) <= max(b["height"], previous["height"]) * 0.6:
+            lines[-1].append(b)
+        else:
+            lines.append([b])
+    return "\n".join(" ".join(b["text"] for b in sorted(line, key=lambda b: b["x"])) for line in lines)
+
+
+def ocr_with_nemotron(page: Image.Image) -> str:
+    """Reads one page with nemotron-ocr-v2. Raises on any failure so the caller can fall back."""
+    response = requests.post(
+        OCR_URL,
+        headers={"Authorization": f"Bearer {os.getenv('NVIDIA_API_KEY', '')}", "Accept": "application/json"},
+        json={"input": [{"type": "image_url", "url": f"data:image/jpeg;base64,{page_to_jpeg_base64(page)}"}]},
+        timeout=OCR_TIMEOUT_SECONDS,
+    )
+    response.raise_for_status()
+    text = lines_from_detections(response.json()["data"][0]["text_detections"])
+    if not text.strip():
+        raise ValueError("no text detected")
+    return text
+
 class DocumentProcessor:
     def __init__(self, upload_dir: str = "uploads"):
         self.upload_dir = upload_dir
         os.makedirs(self.upload_dir, exist_ok=True)
+
+    def _ocr_page(self, page: Image.Image, tesseract_fallback) -> str:
+        """nemotron-ocr-v2 first. Tesseract only when that call fails: its partial misses look like successes."""
+        try:
+            return ocr_with_nemotron(page)
+        except Exception as error:
+            logger.warning("nemotron-ocr failed (%s); falling back to Tesseract for this page", error)
+            return tesseract_fallback(page)
+
+    @staticmethod
+    def _tesseract_full_page(image: Image.Image) -> str:
+        # Preprocess image for better OCR
+        # Convert to grayscale
+        image = image.convert('L')
+
+        # Enhance contrast
+        enhancer = ImageEnhance.Contrast(image)
+        image = enhancer.enhance(2.0)
+
+        # Apply threshold to make text clearer
+        img_array = np.array(image)
+        threshold = 150
+        img_array = np.where(img_array > threshold, 255, 0).astype(np.uint8)
+        image = Image.fromarray(img_array)
+
+        # Perform OCR with better config
+        return pytesseract.image_to_string(
+            image,
+            config='--psm 6 --oem 3'  # PSM 6: Assume uniform block of text, OEM 3: Default
+        )
 
     def preprocess_text(self, text: str) -> str:
         """Cleans extracted text."""
@@ -101,10 +187,8 @@ class DocumentProcessor:
             if not images:
                 raise ValueError("No images converted from PDF")
             
-            first_page = images[0].convert('L') # Grayscale
-            
-            # 2. OCR using Tesseract
-            text = pytesseract.image_to_string(first_page)
+            # 2. OCR the first page (nemotron-ocr-v2, Tesseract if the API call fails)
+            text = self._ocr_page(images[0], lambda page: pytesseract.image_to_string(page.convert('L')))
             
             # 3. Filter text until stop keyword (Header extraction)
             extracted_text = ""
@@ -139,25 +223,7 @@ class DocumentProcessor:
         
         for idx, image in enumerate(images):
             try:
-                # Preprocess image for better OCR
-                # Convert to grayscale
-                image = image.convert('L')
-                
-                # Enhance contrast
-                enhancer = ImageEnhance.Contrast(image)
-                image = enhancer.enhance(2.0)
-                
-                # Apply threshold to make text clearer
-                img_array = np.array(image)
-                threshold = 150
-                img_array = np.where(img_array > threshold, 255, 0).astype(np.uint8)
-                image = Image.fromarray(img_array)
-                
-                # Perform OCR with better config
-                page_text = pytesseract.image_to_string(
-                    image, 
-                    config='--psm 6 --oem 3'  # PSM 6: Assume uniform block of text, OEM 3: Default
-                )
+                page_text = self._ocr_page(image, self._tesseract_full_page)
                 full_text += f"\n--- Page {idx + 1} ---\n{page_text}"
             except Exception as e:
                 logger.error(f"OCR failed for page {idx + 1}: {e}")

@@ -19,7 +19,7 @@ flowchart TD
     %% Ingestion Pipeline
     subgraph Ingestion [Document Ingestion]
         A[PDF Question Paper] --> B[PDF2Image Conversion]
-        B --> C[Tesseract OCR Text Extraction]
+        B --> C[OCR Text Extraction: nemotron-ocr-v2, Tesseract fallback]
         C --> D[LLM Metadata Extraction]
     end
 
@@ -58,7 +58,7 @@ flowchart TD
 
 ## ✨ Core Features
 
-* **📄 Document Ingestion & OCR Processing:** Supports PDF question paper uploads. Automatically extracts headers and cleans them using `pytesseract` and `pdf2image` to pull key metadata fields: `subjectCode`, `subjectName`, `semester`, `monthYear`, `time`, and `marks`.
+* **📄 Document Ingestion & OCR Processing:** Supports PDF question paper uploads. Reads each page with NVIDIA's `nemotron-ocr-v2` (Tesseract only if that API call fails) via `pdf2image`, then extracts the header to pull key metadata fields: `subjectCode`, `subjectName`, `semester`, `monthYear`, `time`, and `marks`.
 * **📚 Syllabus Breakdown & Analysis:** Uploads syllabus PDFs and extracts core modules, topics covered, and percentage weightages using LLMs. Normalizes syllabus distributions to ensure balanced question coverage.
 * **🔍 Semantic Vector Search:** Converts full-text past papers into dense vector embeddings using `nvidia/nemotron-3-embed-1b` and indexes them in a **Qdrant** cluster. Enables semantically searching for exam topics or questions.
 * **🧠 Bloom's Taxonomy-Based Generation:** Allows custom mock paper configuration mapped to Bloom's Taxonomy cognitive dimensions (*Remember, Understand, Apply, Analyze, Evaluate, Create*). Automatically verifies if the generated questions utilize target action verbs.
@@ -79,7 +79,7 @@ flowchart TD
 | **Backend API** | FastAPI (Python) | High-performance asynchronous API endpoints |
 | **Database (Relational)** | NeonDB (PostgreSQL) | Serverless PostgreSQL database for structured data |
 | **Database (Vector)** | Qdrant Cloud | Vector database for similarity search and RAG context |
-| **OCR Pipeline** | Tesseract-OCR & `pdf2image` | Optical Character Recognition for document digitizing |
+| **OCR Pipeline** | NVIDIA `nemotron-ocr-v2`, Tesseract fallback & `pdf2image` | Optical Character Recognition for document digitizing |
 | **LLM Inference** | NVIDIA NIM API | Hosting `z-ai/glm-5.3-flash` & `nvidia/nemotron-3-embed-1b` |
 
 ---
@@ -279,7 +279,7 @@ An optional `TEST_DATABASE_URL` runs the SQL quota test against a real Postgres 
 * **macOS:** Install via Homebrew: `brew install poppler`
 * **Linux (Ubuntu/Debian):** Install via APT: `sudo apt-get install -y poppler-utils`
 
-#### 2. Tesseract OCR (Required for Text Extraction)
+#### 2. Tesseract OCR (fallback when the OCR API call fails)
 
 * **Windows:** Download the installer from [UB Mannheim Tesseract](https://github.com/UB-Mannheim/tesseract/wiki), install it, and add the installation folder (e.g. `C:\Program Files\Tesseract-OCR`) to your System PATH.
 * **macOS:** Install via Homebrew: `brew install tesseract`
