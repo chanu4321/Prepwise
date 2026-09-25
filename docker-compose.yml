@@ -1,4 +1,3 @@
-name: prepwise
 services:
   backend:
     container_name: prepwise-backend
@@ -13,6 +12,17 @@ services:
       PORT: "8000"
       QDRANT_API_KEY: ${QDRANT_API_KEY}
       QDRANT_URL: ${QDRANT_URL}
+      AZURE_CLIENT_ID: ${AZURE_CLIENT_ID}
+      IP_HASH_SALT: ${IP_HASH_SALT}
+      GENERATE_LIMIT_TRIAL: ${GENERATE_LIMIT_TRIAL:-3}
+      GENERATE_LIMIT_VERIFIED: ${GENERATE_LIMIT_VERIFIED:-25}
+      UPLOAD_LIMIT_ANON: ${UPLOAD_LIMIT_ANON:-5}
+      UPLOAD_LIMIT_STUDENT: ${UPLOAD_LIMIT_STUDENT:-20}
+      UPLOAD_LIMIT_FACULTY: ${UPLOAD_LIMIT_FACULTY:-10}
+      SYLLABUS_LIMIT: ${SYLLABUS_LIMIT:-10}
+      # Trust X-Forwarded-For from any peer: safe only while this service publishes no ports
+      # and only nginx shares nginx-network. If either changes, set this to nginx's address.
+      FORWARDED_ALLOW_IPS: "*"
     hostname: prepwise
     image: ghcr.io/chanu4321/prepwise-backend:latest
     networks:

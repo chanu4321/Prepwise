@@ -2,11 +2,15 @@
 
 import { useState, useRef, useCallback } from "react";
 import { CloudUpload, X, CheckCircle, Loader2, BookOpen, ChevronRight, FileText } from "lucide-react";
-import { cn, API_BASE_URL } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { useAuth } from "@/components/AuthProvider";
+import { AccessNotice } from "@/components/AccessNotice";
+import { apiFetch, describeApiError } from "@/lib/api";
 
 type ProcessState = "idle" | "uploading" | "success" | "error";
 
 export default function SyllabusUploadPage() {
+    const { ready, me } = useAuth();
     const [isDragging, setIsDragging] = useState(false);
     const [subjectCode, setSubjectCode] = useState("");
     const [subjectName, setSubjectName] = useState("");
@@ -53,17 +57,8 @@ export default function SyllabusUploadPage() {
         formData.append("subject_code", subjectCode);
         formData.append("subject_name", subjectName);
 
-        fetch(`${API_BASE_URL}/api/v1/syllabus/upload`, {
-            method: "POST",
-            body: formData,
-        })
-        .then(async (res) => {
-            if (!res.ok) {
-                const errorData = await res.json().catch(() => ({}));
-                throw new Error(errorData.detail || "Upload failed");
-            }
-            return res.json();
-        })
+        apiFetch("/api/v1/syllabus/upload", { method: "POST", body: formData })
+        .then((res) => res.json())
         .then((data) => {
             clearInterval(progressInterval);
             setProgress(100);
@@ -73,7 +68,7 @@ export default function SyllabusUploadPage() {
         .catch(err => {
             clearInterval(progressInterval);
             setProcessState("error");
-            setErrorMessage(err.message || "Failed to upload syllabus");
+            setErrorMessage(describeApiError(err));
         });
     }, [subjectCode, subjectName]);
 
@@ -100,6 +95,12 @@ export default function SyllabusUploadPage() {
         setExtractedModules(null);
         setErrorMessage("");
     };
+
+    if (!ready) return null;
+    if (!me) return <AccessNotice title="Faculty only" message="Sign in with a verified faculty account to upload syllabi." showSignIn />;
+    if (!(me.role === "admin" || (me.role === "faculty" && me.verified))) {
+        return <AccessNotice title="Verified faculty only" message="Syllabus uploads need a verified faculty account. Ask an admin to verify you." />;
+    }
 
     return (
         <div className="min-h-[calc(100vh-56px)] bg-background text-foreground overflow-x-hidden pt-16 pb-24 flex flex-col items-center">

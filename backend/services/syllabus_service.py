@@ -4,7 +4,7 @@ import logging
 import requests
 from typing import Dict, Any, Optional
 from services.ocr_service import DocumentProcessor
-from database import get_db_connection
+from database import db_cursor, get_db_connection
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +107,8 @@ def _parse_syllabus_with_llm(text: str) -> Optional[list]:
         logger.error(f"Error calling Ollama for syllabus parsing: {e}")
         return None
 
-def process_and_save_syllabus(file_bytes: bytes, filename: str, subject_code: str, subject_name: str) -> Dict[str, Any]:
+def process_and_save_syllabus(file_bytes: bytes, filename: str, subject_code: str, subject_name: str,
+                               uploaded_by: int | None = None) -> Dict[str, Any]:
     """Processes a syllabus PDF, extracts modules, and saves to database."""
     
     # 1. Extract raw text via OCR
@@ -132,15 +133,16 @@ def process_and_save_syllabus(file_bytes: bytes, filename: str, subject_code: st
         
         # Upsert logic (Insert or Update if subject_code exists)
         cur.execute("""
-            INSERT INTO syllabi (subject_code, subject_name, modules)
-            VALUES (%s, %s, %s)
-            ON CONFLICT (subject_code) 
-            DO UPDATE SET 
+            INSERT INTO syllabi (subject_code, subject_name, modules, uploaded_by)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (subject_code)
+            DO UPDATE SET
                 subject_name = EXCLUDED.subject_name,
                 modules = EXCLUDED.modules,
-                created_at = CURRENT_TIMESTAMP
+                created_at = CURRENT_TIMESTAMP,
+                uploaded_by = COALESCE(syllabi.uploaded_by, EXCLUDED.uploaded_by)
             RETURNING id;
-        """, (subject_code, subject_name, json.dumps(modules)))
+        """, (subject_code, subject_name, json.dumps(modules), uploaded_by))
         
         syllabus_id = cur.fetchone()[0]
         conn.commit()
@@ -189,3 +191,10 @@ def get_syllabus_by_code(subject_code: str) -> Optional[Dict[str, Any]]:
     except Exception as e:
         logger.error(f"Error retrieving syllabus for {subject_code}: {e}")
         return None
+
+def get_syllabus_owner(subject_code: str) -> tuple[bool, int | None]:
+    """(exists, uploaded_by) for a subject code. uploaded_by is None for legacy syllabi."""
+    with db_cursor() as cur:
+        cur.execute("SELECT uploaded_by FROM syllabi WHERE subject_code = %s", (subject_code,))
+        row = cur.fetchone()
+    return (row is not None, row[0] if row else None)

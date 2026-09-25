@@ -78,21 +78,16 @@ class VectorService:
         vector = self.get_embedding(text)
         if not vector:
             return False
+        return self.upsert_paper_vector(paper_id, vector, text, metadata)
 
+    def upsert_paper_vector(self, paper_id: int, vector: list, text: str, metadata: dict) -> bool:
+        """Stores a precomputed vector with the paper's metadata and full text."""
         try:
-            # Add full text to metadata for retrieval
             payload = metadata.copy()
             payload["full_text"] = text
-            
             self.client.upsert(
                 collection_name=COLLECTION_NAME,
-                points=[
-                    models.PointStruct(
-                        id=paper_id,
-                        vector=vector,
-                        payload=payload
-                    )
-                ]
+                points=[models.PointStruct(id=paper_id, vector=vector, payload=payload)]
             )
             return True
         except Exception as e:

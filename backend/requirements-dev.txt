@@ -1,0 +1,3 @@
+pytest>=9.1
+# Starlette 1.x's TestClient prefers httpx2 (plain httpx still works but is deprecated there)
+httpx2>=2.13
