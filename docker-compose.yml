@@ -13,6 +13,16 @@ services:
       PORT: "8000"
       QDRANT_API_KEY: ${QDRANT_API_KEY}
       QDRANT_URL: ${QDRANT_URL}
+      AZURE_CLIENT_ID: ${AZURE_CLIENT_ID}
+      IP_HASH_SALT: ${IP_HASH_SALT}
+      GENERATE_LIMIT_TRIAL: ${GENERATE_LIMIT_TRIAL:-3}
+      GENERATE_LIMIT_VERIFIED: ${GENERATE_LIMIT_VERIFIED:-25}
+      UPLOAD_LIMIT_ANON: ${UPLOAD_LIMIT_ANON:-5}
+      UPLOAD_LIMIT_STUDENT: ${UPLOAD_LIMIT_STUDENT:-20}
+      UPLOAD_LIMIT_FACULTY: ${UPLOAD_LIMIT_FACULTY:-10}
+      SYLLABUS_LIMIT: ${SYLLABUS_LIMIT:-10}
+      # The container is only reachable through nginx on this network, so trust its X-Forwarded-For
+      FORWARDED_ALLOW_IPS: "*"
     hostname: prepwise
     image: ghcr.io/chanu4321/prepwise-backend:latest
     networks:

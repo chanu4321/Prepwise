@@ -161,7 +161,81 @@ EMBEDDING_MODEL=nvidia/nemotron-3-embed-1b
 # Qdrant Vector Search Config
 QDRANT_URL=https://<your-qdrant-cluster-url>:6333
 QDRANT_API_KEY=...
+
+# Microsoft sign-in (Entra app registration, see "Authentication")
+AZURE_CLIENT_ID=<application-client-id>
+# Random secret used to hash anonymous uploaders' IP addresses
+IP_HASH_SALT=<long-random-string>
+# Optional daily limits (defaults shown)
+GENERATE_LIMIT_TRIAL=3
+GENERATE_LIMIT_VERIFIED=25
+UPLOAD_LIMIT_ANON=5
+UPLOAD_LIMIT_STUDENT=20
+UPLOAD_LIMIT_FACULTY=10
+SYLLABUS_LIMIT=10
 ```
+
+The frontend needs the same client id in `frontend/.env.local`: `NEXT_PUBLIC_AZURE_CLIENT_ID=<same id>`.
+
+---
+
+## 🔐 Authentication
+
+Prepwise uses Microsoft sign-in (Entra ID) for roles and quotas. Anyone can browse, search, and download papers without signing in.
+
+### Roles and permissions
+
+| Capability | Anonymous | Student | Faculty (trial) | Faculty (verified) | Admin |
+|---|---|---|---|---|---|
+| Browse / search / download papers | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Upload papers | ✓ 5/day per IP | ✓ 20/day | – | ✓ 10/day | ✓ unlimited |
+| Upload syllabi | – | – | – | ✓ 10/day | ✓ unlimited |
+| View syllabi (used by the generator) | – | – | ✓ | ✓ | ✓ |
+| Generate mock papers | – | – | ✓ 3/day | ✓ 25/day | ✓ unlimited |
+| Manage users (role, verified) | – | – | – | – | ✓ |
+
+### How auth works
+
+The browser signs in with Microsoft via MSAL and sends an access token. FastAPI verifies the signature against Microsoft's published keys, checks audience, issuer (per tenant), expiry and the `access_as_user` scope, then loads the role from Postgres. The frontend only hides buttons; every rule is enforced by the API. Roles are self-declared because the college's Microsoft directory isn't available to this project; trial faculty get a small daily limit, and an admin verifies real faculty. Anonymous uploads are limited per IP address, stored only as a salted hash.
+
+### Setup
+
+1. Microsoft no longer lets a personal account register an app outside a directory, so you need an Entra tenant first. Signing in to [entra.microsoft.com](https://entra.microsoft.com) with a personal account does **not** create one. Free ways to get one:
+   - **[Azure for Students](https://azure.microsoft.com/free/students/)** — no credit card, verify with a college email.
+   - **[Azure free account](https://azure.microsoft.com/free/)** — asks for a card for identity verification; no charge unless you upgrade.
+
+   Entra ID's **Free** tier covers app registration and sign-in; the paid P1/P2 tiers are not needed. Then sign in to [entra.microsoft.com](https://entra.microsoft.com) with that tenant's account.
+2. **App registrations → New registration**
+   - Name: `PrepWise`
+   - Supported account types: **Accounts in any organizational directory and personal Microsoft accounts**
+   - Redirect URI: platform **Single-page application (SPA)**, `http://localhost:3000/auth/redirect`
+   - Register.
+3. **Authentication:** under Single-page application, add `https://prepwise-opal-three.vercel.app/auth/redirect`. Save.
+4. **Manifest:** confirm `"requestedAccessTokenVersion": 2` inside `"api"`. In the older manifest format it's `"accessTokenAcceptedVersion": 2`. Set it if it's `null`, then save.
+5. **Expose an API → Application ID URI → Add:** accept `api://<client-id>` and save. **Add a scope:** name `access_as_user`, who can consent **Admins and users**, admin and user consent display name "Access PrepWise as you", State **Enabled**.
+6. **API permissions → Add a permission → My APIs → PrepWise → Delegated → `access_as_user` → Add permissions.**
+7. Copy the **Application (client) ID** from Overview. Add `AZURE_CLIENT_ID=<id>` to the root `.env`, `NEXT_PUBLIC_AZURE_CLIENT_ID=<id>` to `frontend/.env.local` (create the file; it's gitignored by Next's default `.gitignore`), and to Vercel's `NEXT_PUBLIC_AZURE_CLIENT_ID` project environment variable.
+
+### Admin commands
+
+```bash
+python backend/admin_cli.py make-admin you@outlook.com        # after signing in once
+python backend/admin_cli.py reprocess --id 7                  # preview re-running paper 7
+python backend/admin_cli.py reprocess --id 7 --apply          # write it
+docker exec -it prepwise-backend python backend/admin_cli.py reprocess --all   # on the server
+```
+
+### Deployment note
+
+nginx must *overwrite* the client IP header (`proxy_set_header X-Forwarded-For $remote_addr;`, or `$http_cf_connecting_ip` behind Cloudflare) so visitors can't fake their IP to reset the anonymous limit.
+
+### Tests
+
+```bash
+python -m pip install -r backend/requirements-dev.txt && python -m pytest
+```
+
+An optional `TEST_DATABASE_URL` runs the SQL quota test against a real Postgres database (e.g. a Neon branch) — never production. Run `python -m pytest` locally and make sure it passes before merging a pull request; the `test` job in CI runs on pushes to `default` and gates the image build, it does not run on pull requests.
 
 ---
 
