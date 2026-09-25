@@ -6,9 +6,25 @@ import { useAuth } from "@/components/AuthProvider";
 const ROLE_LABEL = { student: "Student", faculty: "Faculty", admin: "Admin" } as const;
 
 export function AuthMenu() {
-    const { enabled, ready, me, signIn, signOut } = useAuth();
+    const { enabled, ready, signedIn, me, profileError, signIn, signOut, refresh } = useAuth();
     if (!enabled) return null;
     if (!ready) return <span className="h-8 w-24 animate-pulse rounded-md bg-muted" aria-hidden />;
+
+    if (!me && signedIn) {
+        return (
+            <div className="flex items-center gap-2 text-sm">
+                <span className="text-foreground/60" title={profileError ?? undefined}>
+                    Couldn&apos;t load your profile
+                </span>
+                <button onClick={() => void refresh()} className="text-foreground/60 hover:text-foreground underline-offset-2 hover:underline">
+                    Retry
+                </button>
+                <button onClick={signOut} className="text-foreground/60 hover:text-foreground" aria-label="Sign out">
+                    <LogOut className="h-4 w-4" />
+                </button>
+            </div>
+        );
+    }
 
     if (!me) {
         return (
