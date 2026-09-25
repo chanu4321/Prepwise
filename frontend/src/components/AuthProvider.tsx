@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { MsalProvider, useMsal } from "@azure/msal-react";
 import { EventType, InteractionStatus, type AccountInfo, type EventMessage } from "@azure/msal-browser";
 import { AUTH_ENABLED, REDIRECT_PATH, getMsalInstance, loginRequest, markMsalReady, msalReady } from "@/lib/auth/msal";
@@ -113,6 +113,12 @@ function AuthStateProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         if (inProgress === InteractionStatus.None) void refresh();
     }, [inProgress, refresh]);
+
+    const router = useRouter();
+    const currentPath = usePathname();
+    useEffect(() => {
+        if (me && me.role === null && currentPath !== "/welcome") router.replace("/welcome");
+    }, [me, currentPath, router]);
 
     const value = useMemo<AuthState>(
         () => ({

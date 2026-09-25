@@ -20,6 +20,9 @@ import { QuestionItem } from '@/components/QuestionItem';
 import { useState, useEffect } from "react";
 import { BookOpen, Plus, Trash2, GripVertical, ListFilter, MoreVertical, Sparkles, Brain, Search, PenTool, GitMerge, Target, Wand2 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/utils";
+import { useAuth } from "@/components/AuthProvider";
+import { AccessNotice } from "@/components/AccessNotice";
+import { apiFetch, describeApiError } from "@/lib/api";
 
 const getBloomIcon = (level: string) => {
     switch (level.toLowerCase()) {
@@ -68,6 +71,7 @@ const bloomLevels = ["remember", "understand", "apply", "analyze", "evaluate", "
 const difficulties = ["easy", "medium", "hard"];
 
 export default function GeneratePage() {
+    const { ready, me, refresh } = useAuth();
     const [subject, setSubject] = useState("Software Project Management");
     const [subjectCode, setSubjectCode] = useState("");
     const [duration, setDuration] = useState(180);
@@ -101,13 +105,9 @@ export default function GeneratePage() {
         if (!subjectCode.trim()) return;
         setIsFetchingSyllabus(true);
         try {
-            const res = await fetch(`${API_BASE_URL}/api/v1/syllabus/${subjectCode.trim()}`);
-            if (res.ok) {
-                const data = await res.json();
-                setSyllabus(data.data);
-            } else {
-                setSyllabus(null);
-            }
+            const res = await apiFetch(`/api/v1/syllabus/${encodeURIComponent(subjectCode.trim())}`);
+            const data = await res.json();
+            setSyllabus(data.data);
         } catch {
             setSyllabus(null);
         } finally {
@@ -213,14 +213,15 @@ export default function GeneratePage() {
             // Bypass Cloudflare timeout limit using direct VPS IP if provided in env
             const API_URL = process.env.NEXT_PUBLIC_DIRECT_API_URL || API_BASE_URL;
 
-            const response = await fetch(`${API_URL}/api/v1/generate/mock-paper-stream`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ subject, sections: sectionsWithPool })
-            });
-
-            if (!response.ok) {
-                alert("Failed to connect to generation service");
+            let response: Response;
+            try {
+                response = await apiFetch("/api/v1/generate/mock-paper-stream", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ subject, sections: sectionsWithPool })
+                }, API_URL);
+            } catch (error) {
+                alert(describeApiError(error));
                 setIsGenerating(false);
                 return;
             }
@@ -297,6 +298,7 @@ export default function GeneratePage() {
                     }
                 }
             }
+            void refresh();
         } catch (error) {
             console.error(error);
             alert("Error connecting to generation stream");
@@ -372,11 +374,24 @@ export default function GeneratePage() {
 
     const draggedItem = activeId ? findActiveQuestion(activeId) : null;
 
+    if (!ready) return null;
+    if (!me) {
+        return <AccessNotice title="Faculty only" message="Sign in with a faculty account to generate mock papers." showSignIn />;
+    }
+    if (me.role !== "faculty" && me.role !== "admin") {
+        return <AccessNotice title="Faculty only" message="Mock paper generation is for faculty accounts." />;
+    }
+
     return (
         <div className="container mx-auto px-4 py-8 max-w-5xl text-[#E2E8F0]">
             <div className="mb-10">
                 <h1 className="text-3xl font-extrabold tracking-tight text-white mb-2">Generate Mock Paper</h1>
                 <p className="text-[#94A3B8] text-sm font-medium">Engineer high-fidelity assessments with automated Bloom's Taxonomy mapping.</p>
+                <p className="text-sm text-primary">
+                    {me.limits.generate === null
+                        ? "Unlimited papers."
+                        : `${me.usedToday.generate} of ${me.limits.generate} papers used today${me.role === "faculty" && !me.verified ? " (trial)" : ""}.`}
+                </p>
             </div>
 
             {/* Inputs Row */}

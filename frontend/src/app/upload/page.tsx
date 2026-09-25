@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { API_BASE_URL } from "@/lib/utils";
+import { useAuth } from "@/components/AuthProvider";
+import { AccessNotice } from "@/components/AccessNotice";
+import { apiFetch, describeApiError } from "@/lib/api";
 import { CloudUpload, X, FileText, CheckCircle, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +16,7 @@ type UploadTask = {
 };
 
 export default function UploadPage() {
+    const { ready, me, refresh } = useAuth();
     const [isDragging, setIsDragging] = useState(false);
     const [tasks, setTasks] = useState<UploadTask[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -56,28 +59,22 @@ export default function UploadPage() {
             const formData = new FormData();
             formData.append("file", task.file);
 
-            fetch(`${API_BASE_URL}/api/v1/documents/ingest`, {
-                method: "POST",
-                body: formData,
-            })
-            .then(res => {
-                if (!res.ok) throw new Error("Upload failed");
-                return res.json();
-            })
+            apiFetch("/api/v1/documents/ingest", { method: "POST", body: formData })
             .then(() => {
                 clearInterval(progressInterval);
-                setTasks(prev => prev.map(t => 
+                setTasks(prev => prev.map(t =>
                     t.id === task.id ? { ...t, progress: 100, status: "success" } : t
                 ));
+                void refresh();
             })
             .catch(err => {
                 clearInterval(progressInterval);
-                setTasks(prev => prev.map(t => 
-                    t.id === task.id ? { ...t, status: "error", errorMessage: "Failed to upload" } : t
+                setTasks(prev => prev.map(t =>
+                    t.id === task.id ? { ...t, status: "error", errorMessage: describeApiError(err) } : t
                 ));
             });
         });
-    }, []);
+    }, [refresh]);
 
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
@@ -97,6 +94,17 @@ export default function UploadPage() {
         setTasks(prev => prev.filter(t => t.id !== id));
     };
 
+    if (!ready) return null;
+    if (me?.role === "faculty" && !me.verified) {
+        return <AccessNotice title="Paper uploads aren't available on a faculty trial"
+            message="Trial faculty accounts can generate mock papers. An admin can verify your account to enable uploads." />;
+    }
+    const allowance = !me
+        ? "Uploading anonymously: 5 papers a day. Sign in as a student for 20."
+        : me.limits.upload === null
+            ? "Unlimited uploads."
+            : `${me.usedToday.upload} of ${me.limits.upload} uploads used today.`;
+
     return (
         <div className="min-h-[calc(100vh-56px)] bg-background text-foreground overflow-x-hidden pt-16 pb-24">
             
@@ -113,6 +121,7 @@ export default function UploadPage() {
                     <p className="text-muted-foreground text-lg max-w-xl leading-relaxed">
                         Contribute to the academic community and help fellow students excel.
                     </p>
+                    <p className="mt-3 text-sm text-primary">{allowance}</p>
                 </div>
 
                 {/* Dropzone */}
@@ -190,6 +199,9 @@ export default function UploadPage() {
                                                 <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
                                                     <div className="h-full bg-red-500 rounded-full w-full" />
                                                 </div>
+                                            )}
+                                            {task.status === "error" && task.errorMessage && (
+                                                <p className="mt-2 text-xs text-red-400">{task.errorMessage}</p>
                                             )}
                                         </div>
                                     </div>
