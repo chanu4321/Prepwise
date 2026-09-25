@@ -18,8 +18,17 @@ def test_unknown_email_explains_what_to_do():
 
 def test_single_match_confirmed():
     store = store_with("me@outlook.com")
-    assert make_admin("ME@outlook.com", store, input_fn=lambda _: "y", out=lambda _: None) is True
+    prompts = []
+
+    def input_fn(prompt):
+        prompts.append(prompt)
+        return "y"
+
+    assert make_admin("ME@outlook.com", store, input_fn=input_fn, out=lambda _: None) is True
     assert store.get(1).role == "admin" and store.get(1).verified is True
+    # The confirmation prompt must show the tenant (and join date), not just the user-controlled
+    # name and id, so the operator can tell this really is the account they mean to promote.
+    assert "tenant tenant-0" in prompts[0] and "joined" in prompts[0]
 
 
 def test_single_match_declined_changes_nothing():

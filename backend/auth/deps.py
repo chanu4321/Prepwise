@@ -1,4 +1,5 @@
 import hashlib
+import ipaddress
 import logging
 import os
 
@@ -64,11 +65,32 @@ def user_subject(user: User) -> str:
     return f"user:{user.id}"
 
 
+def _normalized_ip(host: str) -> str:
+    """Collapses an address to its anonymous-quota bucket key.
+
+    An IPv6 client controls a whole /64, so it's normalised to its /64 network to stop an
+    attacker rotating addresses within that block for fresh buckets. An IPv4-mapped IPv6 address
+    (::ffff:a.b.c.d) is normalised to the plain IPv4 form it represents. IPv4 addresses, and
+    anything that doesn't parse as an IP (e.g. "unknown", TestClient's "testclient"), are kept as-is.
+    """
+    try:
+        addr = ipaddress.ip_address(host)
+    except ValueError:
+        return host
+    if isinstance(addr, ipaddress.IPv6Address):
+        mapped = addr.ipv4_mapped
+        if mapped is not None:
+            return str(mapped)
+        return str(ipaddress.ip_network(f"{addr}/64", strict=False).network_address) + "/64"
+    return host
+
+
 def ip_subject(request: Request) -> str:
     salt = os.getenv("IP_HASH_SALT")
     if not salt:
         raise RuntimeError("IP_HASH_SALT is not configured")
     ip = request.client.host if request.client else "unknown"
+    ip = _normalized_ip(ip)
     return "ip:" + hashlib.sha256((salt + ip).encode()).hexdigest()
 
 

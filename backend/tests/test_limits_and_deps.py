@@ -1,3 +1,4 @@
+import hashlib
 from datetime import datetime, timezone
 
 import pytest
@@ -112,15 +113,31 @@ def test_require_role_distinguishes_no_role_from_wrong_role(probe):
 def test_anonymous_subject_is_a_salted_hash_not_the_ip(probe):
     client, _, _ = probe
     subject = client.get("/subject").json()["subject"]
-    assert subject.startswith("ip:") and len(subject) == 3 + 64
-    assert "testclient" not in subject
+    # IP_HASH_SALT is "test-salt" (conftest); TestClient's default client host is "testclient",
+    # which isn't a parseable IP, so it's hashed as-is rather than normalised by ip_subject.
+    expected = "ip:" + hashlib.sha256(("test-salt" + "testclient").encode()).hexdigest()
+    assert subject == expected
+
+
+def request_from(host):
+    return Request({"type": "http", "client": (host, 1), "headers": []})
 
 
 def test_ip_subject_differs_per_address():
-    def request_from(host):
-        return Request({"type": "http", "client": (host, 1), "headers": []})
-
     assert ip_subject(request_from("203.0.113.1")) != ip_subject(request_from("203.0.113.2"))
+
+
+def test_ipv6_addresses_in_the_same_64_share_a_subject():
+    """An IPv6 client controls a whole /64, so two addresses in it must map to one bucket."""
+    assert ip_subject(request_from("2001:db8:1:2::1")) == ip_subject(request_from("2001:db8:1:2:ffff::9"))
+
+
+def test_ipv6_addresses_in_a_different_64_have_different_subjects():
+    assert ip_subject(request_from("2001:db8:1:2::1")) != ip_subject(request_from("2001:db8:1:3::1"))
+
+
+def test_ipv4_mapped_ipv6_matches_the_plain_ipv4_address():
+    assert ip_subject(request_from("::ffff:203.0.113.1")) == ip_subject(request_from("203.0.113.1"))
 
 
 def test_enforce_quota_raises_429_with_retry_after():

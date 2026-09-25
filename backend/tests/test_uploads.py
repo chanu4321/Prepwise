@@ -1,3 +1,4 @@
+import hashlib
 import io
 
 import pytest
@@ -45,7 +46,10 @@ def test_anonymous_limit_is_per_ip(client, store):
 def test_anonymous_usage_is_stored_as_hash(client, store):
     upload(client)
     (subject, action), = store.usage.keys()
-    assert subject.startswith("ip:") and "testclient" not in subject and action == "upload"
+    # IP_HASH_SALT is "test-salt" (conftest); TestClient's default client host is "testclient",
+    # which isn't a parseable IP, so it's hashed as-is rather than normalised by ip_subject.
+    expected = "ip:" + hashlib.sha256(("test-salt" + "testclient").encode()).hexdigest()
+    assert subject == expected and action == "upload"
 
 
 def test_student_limit(client, auth_headers, monkeypatch):

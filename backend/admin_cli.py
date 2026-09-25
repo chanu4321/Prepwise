@@ -16,7 +16,11 @@ def make_admin(email: str, store, input_fn=input, out=print) -> bool:
 
     if len(matches) == 1:
         target = matches[0]
-        answer = input_fn(f"Make {target.name or target.email} (id {target.id}) an admin? [y/N] ")
+        joined = target.created_at.strftime("%Y-%m-%d") if target.created_at else "?"
+        answer = input_fn(
+            f"Make {target.name or target.email} (id {target.id}, tenant {target.ms_tid}, "
+            f"joined {joined}) an admin? [y/N] "
+        )
         if answer.strip().lower() != "y":
             out("Cancelled.")
             return False

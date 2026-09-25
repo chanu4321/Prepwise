@@ -10,7 +10,7 @@ from api.admin import router as admin_router
 from errors import install_error_handling
 from database import init_db
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s", force=True)
 
 logger = logging.getLogger(__name__)
 
