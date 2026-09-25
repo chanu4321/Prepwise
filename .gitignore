@@ -56,3 +56,6 @@ Thumbs.db
 reference_ocr/
 qdrant_storage/
 dev-scripts/
+# Written by `next dev` (Next.js 16 agent rules)
+frontend/AGENTS.md
+frontend/CLAUDE.md
