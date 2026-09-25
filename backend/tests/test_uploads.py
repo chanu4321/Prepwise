@@ -37,6 +37,11 @@ def test_anonymous_upload_is_saved_with_normalized_code(client, store, pipeline)
     assert pipeline[0]["fields"]["subject_code"] == "AIML201"
 
 
+def test_database_path_stays_relative_to_the_project_root(client, store, pipeline):
+    assert upload(client).status_code == 200
+    assert pipeline[0]["file_path"] == "backend/papers/paper.pdf"
+
+
 def test_anonymous_limit_is_per_ip(client, store):
     assert [upload(client).status_code for _ in range(6)] == [200] * 5 + [429]
     other_ip = TestClient(client.app, client=("198.51.100.7", 50000))

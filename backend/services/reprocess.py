@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 
 from services.ocr_service import DocumentProcessor
 from services.paper_metadata import PAPER_FIELDS, to_paper_fields
-from services.paper_store import PaperRow, get_papers, update_paper_metadata
+from services.paper_store import PAPERS_DIR, PaperRow, get_papers, resolve_paper_path, update_paper_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -33,10 +33,11 @@ def diff_fields(old: dict, merged: dict) -> dict:
 
 
 def reprocess_paper(row: PaperRow, processor, vector_service, update_metadata, apply: bool) -> ReprocessResult:
-    if not os.path.exists(row.file_path):
-        return ReprocessResult(row.id, row.filename, "skipped", message=f"PDF not found at {row.file_path}")
+    pdf_path = resolve_paper_path(row.file_path)
+    if not os.path.exists(pdf_path):
+        return ReprocessResult(row.id, row.filename, "skipped", message=f"PDF not found at {pdf_path}")
     try:
-        extracted = processor.process_pdf(row.file_path)
+        extracted = processor.process_pdf(pdf_path)
         merged = merge_fields(row.fields, to_paper_fields(extracted.get("metadata")))
         changes = diff_fields(row.fields, merged)
         if not apply:
@@ -44,7 +45,7 @@ def reprocess_paper(row: PaperRow, processor, vector_service, update_metadata, a
                 return ReprocessResult(row.id, row.filename, "unchanged", changes, "metadata already up to date")
             return ReprocessResult(row.id, row.filename, "preview", changes)
 
-        full_text = processor.extract_full_text(row.file_path)
+        full_text = processor.extract_full_text(pdf_path)
         vector = vector_service.get_embedding(full_text, input_type="passage")
         if not vector:
             return ReprocessResult(row.id, row.filename, "failed", changes, "embedding failed; nothing was changed")
@@ -88,7 +89,7 @@ def run_reprocess(ids: list[int] | None, apply: bool, out=print) -> int:
         out("Nothing to reprocess.")
         return 1
 
-    results = reprocess_many(rows, DocumentProcessor(upload_dir="backend/papers"), VectorService(),
+    results = reprocess_many(rows, DocumentProcessor(upload_dir=resolve_paper_path(PAPERS_DIR)), VectorService(),
                              update_paper_metadata, apply, out)
     counts = Counter(result.status for result in results)
     out("Summary: " + ", ".join(f"{counts[s]} {s}" for s in STATUSES if counts[s]))

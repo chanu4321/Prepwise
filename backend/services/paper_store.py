@@ -1,7 +1,18 @@
 from dataclasses import dataclass
+from pathlib import Path
 
 from database import db_cursor
 from services.paper_metadata import PAPER_FIELDS
+
+# The folder that holds `backend/` (/app in the container). `papers.file_path` values are relative to it.
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PAPERS_DIR = "backend/papers"
+
+
+def resolve_paper_path(stored_path: str) -> str:
+    """Absolute path for a `papers.file_path` value, whatever directory the process was started from."""
+    path = Path(stored_path)
+    return str(path if path.is_absolute() else PROJECT_ROOT / path)
 
 
 @dataclass

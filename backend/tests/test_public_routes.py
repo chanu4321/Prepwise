@@ -21,6 +21,19 @@ def test_download_of_unknown_paper_is_404_not_500(client, store, monkeypatch):
     assert response.status_code == 404 and response.json()["code"] == "not_found"
 
 
+def test_download_finds_the_file_whatever_the_current_directory(client, store, monkeypatch, tmp_path):
+    root = tmp_path / "project"
+    (root / "backend" / "papers").mkdir(parents=True)
+    (root / "backend" / "papers" / "SPM 23.pdf").write_bytes(b"%PDF-1.4 spm")
+    monkeypatch.setattr("services.paper_store.PROJECT_ROOT", root)
+    monkeypatch.setattr("api.routes.db_cursor", lambda: fake_db_cursor([("backend/papers/SPM 23.pdf", "SPM 23.pdf")]))
+    monkeypatch.chdir(tmp_path)
+
+    response = client.get("/api/v1/documents/1/download")
+    assert response.status_code == 200
+    assert response.content == b"%PDF-1.4 spm"
+
+
 def test_documents_list_is_public(client, store, monkeypatch):
     row = (1, "SPM 23.pdf", "CSE432", "SPM", None, "June, 2023", "3 Hrs.", "60")
     monkeypatch.setattr("api.routes.db_cursor", lambda: fake_db_cursor([row]))

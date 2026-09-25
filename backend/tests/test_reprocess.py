@@ -44,6 +44,18 @@ def row(tmp_path):
     return PaperRow(id=14, filename="DMBI.pdf", file_path=str(pdf), fields=dict(OLD))
 
 
+def test_relative_database_path_is_found_from_any_directory(monkeypatch, tmp_path):
+    root = tmp_path / "project"
+    (root / "backend" / "papers").mkdir(parents=True)
+    (root / "backend" / "papers" / "DMBI.pdf").write_bytes(b"%PDF")
+    monkeypatch.setattr("services.paper_store.PROJECT_ROOT", root)
+    monkeypatch.chdir(tmp_path)
+    stored = PaperRow(id=14, filename="DMBI.pdf", file_path="backend/papers/DMBI.pdf", fields=dict(OLD))
+
+    result = reprocess_paper(stored, Processor({"subjectCode": "it 402"}), Vectors(), lambda *a: None, apply=False)
+    assert result.status == "preview"
+
+
 def test_merge_keeps_old_values_when_new_are_empty():
     new = {"subject_code": "IT402", "subject_name": None, "semester": None, "year": "", "time": None, "marks": None}
     merged = merge_fields(OLD, new)

@@ -17,15 +17,15 @@ from auth.users import PostgresUserStore, User
 from database import db_cursor
 from errors import ApiError
 from services.paper_metadata import to_paper_fields
-from services.paper_store import insert_paper
+from services.paper_store import PAPERS_DIR, insert_paper, resolve_paper_path
 from services.rag_service import RAGService
 from services.syllabus_service import get_syllabus_by_code, get_syllabus_owner, process_and_save_syllabus
 from services.vector_service import VectorService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-# Store papers in 'backend/papers' directory
-processor = DocumentProcessor(upload_dir="backend/papers")
+# Store papers in 'backend/papers', resolved from the project root rather than the current directory
+processor = DocumentProcessor(upload_dir=resolve_paper_path(PAPERS_DIR))
 
 REQUIRED_METADATA = ("subjectCode", "subjectName", "monthYear", "time", "marks")
 METADATA_ATTEMPTS = 2
@@ -113,7 +113,7 @@ def ingest_document(
         fields = to_paper_fields(result.get("metadata"))
         paper_id = insert_paper(
             filename=filename,
-            file_path=file_path.replace("\\", "/"),
+            file_path=f"{PAPERS_DIR}/{filename}",
             fields=fields,
             uploaded_by=user.id if user is not None else None,
         )
@@ -186,7 +186,8 @@ def download_paper(paper_id: int):
         row = cur.fetchone()
     if not row:
         raise ApiError(404, "not_found", "Paper not found.")
-    file_path, filename = row
+    stored_path, filename = row
+    file_path = resolve_paper_path(stored_path)
     if not os.path.exists(file_path):
         logger.error("Paper %s is in the database but missing on disk at %s", paper_id, file_path)
         raise ApiError(404, "not_found", "This paper's file is missing.")
