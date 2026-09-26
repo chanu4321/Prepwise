@@ -153,7 +153,7 @@ def delete_paper(paper_id: int, admin: User = Depends(require_role("admin")),
     paper = _get_or_404(papers, paper_id)
     if paper.status == "processing":
         raise ApiError(409, "invalid_transition", "This paper is still being processed. Try again in a few minutes.")
-    if paper.status in HAS_VECTOR and not vectors.delete_paper(paper.id):
+    if not vectors.delete_paper(paper.id):
         raise _index_unavailable()
     papers.delete(paper.id)
     if papers.count_file_users(paper.file_path) == 0:

@@ -163,6 +163,15 @@ def test_delete_keeps_a_file_another_paper_still_uses(client, admin, papers, vec
     assert pdf.exists()
 
 
+def test_delete_removes_a_leftover_vector_from_a_failed_paper(client, admin, papers, vectors, tmp_path):
+    pdf = tmp_path / "z.pdf"
+    pdf.write_bytes(b"%PDF")
+    paper = papers.add_paper(status="failed", file_path=str(pdf))
+    vectors.points[paper.id] = {"status": "failed"}  # left behind by an earlier attempt
+    assert client.delete(f"{BASE}/{paper.id}", headers=admin).status_code == 204
+    assert paper.id not in vectors.points
+
+
 def test_a_paper_being_processed_cannot_be_deleted(client, admin, papers, vectors):
     paper = papers.add_paper(status="processing")
     response = client.delete(f"{BASE}/{paper.id}", headers=admin)
