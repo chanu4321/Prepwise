@@ -6,7 +6,6 @@ import shutil
 import os
 import logging
 import json
-import asyncio
 
 from typing import List
 
@@ -125,7 +124,7 @@ def ingest_document(
     return {"status": "success", "filename": filename, "db_id": paper_id, "data": result}
 
 @router.post("/syllabus/upload")
-async def upload_syllabus(
+def upload_syllabus(
     file: UploadFile = File(...),
     subject_code: str = Form(...),
     subject_name: str = Form(...),
@@ -145,7 +144,7 @@ async def upload_syllabus(
     subject = user_subject(user)
     enforce_quota(store, subject, "syllabus", limit)
     result = process_and_save_syllabus(
-        file_bytes=await file.read(),
+        file_bytes=file.file.read(),
         filename=filename,
         subject_code=subject_code,
         subject_name=subject_name,
@@ -257,7 +256,7 @@ def generate_mock_paper(
     return result
 
 @router.post("/generate/mock-paper-stream")
-async def generate_mock_paper_stream(
+def generate_mock_paper_stream(
     request: dict,
     user: User = Depends(require_role("faculty", "admin")),
     store: PostgresUserStore = Depends(get_user_store),
@@ -265,6 +264,10 @@ async def generate_mock_paper_stream(
     """
     SSE streaming endpoint: generates one question at a time and streams each
     back as a Server-Sent Event so Cloudflare/nginx timeouts are never hit.
+
+    Plain `def` on purpose: the quota check, the vector search and the minutes-long LLM calls are
+    blocking, so they run in worker threads (Starlette iterates a sync generator in a threadpool)
+    instead of freezing the event loop for every other request.
     """
     if "subject" not in request or "sections" not in request:
         raise ApiError(400, "invalid_request", "Missing required fields: subject, sections")
@@ -273,7 +276,7 @@ async def generate_mock_paper_stream(
     limit = generate_limit(user)
     enforce_quota(store, subject_key, "generate", limit)
 
-    async def event_stream():
+    def event_stream():
         real_questions = 0
         try:
             import copy, math
@@ -291,7 +294,6 @@ async def generate_mock_paper_stream(
 
             # Send metadata first so frontend knows source papers
             yield _sse({"type": "meta", "sourcePapers": [p["filename"] for p in similar_papers], "subject": subject})
-            await asyncio.sleep(0)  # flush to client
 
             result_sections = []
 
@@ -324,7 +326,6 @@ async def generate_mock_paper_stream(
                         real_questions += 1
                     generated_questions.append(q)
                     yield _sse({"type": "question", "section": section_name, "is_pool": False, "question": q})
-                    await asyncio.sleep(0)
 
                 for q_config in pool_configs:
                     q = rag_service._generate_question(q_config, context, subject, bloom_dist)
@@ -332,7 +333,6 @@ async def generate_mock_paper_stream(
                         real_questions += 1
                     pool_questions.append(q)
                     yield _sse({"type": "question", "section": section_name, "is_pool": True, "question": q})
-                    await asyncio.sleep(0)
 
                 result_sections.append({
                     "name": section_name,
