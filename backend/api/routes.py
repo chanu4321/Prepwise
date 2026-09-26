@@ -183,7 +183,7 @@ _UPLOAD_KEY = re.compile(r"^[0-9a-f]{32}$")
 @router.get("/documents/uploads/{upload_key}")
 def get_upload_status(upload_key: str, papers: PostgresPaperStore = Depends(get_paper_store)):
     """An upload's progress. The key is unguessable, so this works for anonymous uploads too."""
-    paper = papers.get_by_upload_key(upload_key) if _UPLOAD_KEY.match(upload_key) else None
+    paper = papers.get_by_upload_key(upload_key) if _UPLOAD_KEY.fullmatch(upload_key) else None
     if paper is None:
         raise ApiError(404, "not_found", "Upload not found.")
     return upload_status(paper)

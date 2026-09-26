@@ -95,7 +95,7 @@ def test_uploader_can_check_status_with_the_upload_key(client, store, papers):
 
 
 # (A key with "/" or ".." never reaches this route: the URL doesn't match it, so it's a plain 404 either way.)
-@pytest.mark.parametrize("key", ["0" * 32, "abc", "A" * 32, "a" * 200, "g" * 32])
+@pytest.mark.parametrize("key", ["0" * 32, "abc", "A" * 32, "a" * 200, "g" * 32, "0" * 32 + "%0A"])
 def test_unknown_or_malformed_upload_key_is_404(client, store, papers, key, monkeypatch):
     looked_up = []
     monkeypatch.setattr(papers, "get_by_upload_key", lambda k: looked_up.append(k))

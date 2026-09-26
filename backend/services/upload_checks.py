@@ -1,11 +1,14 @@
 """Checks on an uploaded file before it's accepted: name, size, page count, and exact copies."""
 import hashlib
+import logging
 import os
 
 from pdf2image import pdfinfo_from_path
 
 from errors import ApiError
 from services.paper_store import Paper
+
+logger = logging.getLogger(__name__)
 
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 MAX_PAGES = 20
@@ -66,8 +69,9 @@ def save_upload(source, destination, max_bytes: int) -> str:
 def count_pdf_pages(path) -> int | None:
     """Page count from poppler's pdfinfo, or None when the PDF can't be read."""
     try:
-        return int(pdfinfo_from_path(str(path))["Pages"])
-    except Exception:
+        return int(pdfinfo_from_path(str(path), timeout=30)["Pages"])
+    except Exception as error:
+        logger.warning("Couldn't count the pages of %s: %s", path, error)
         return None
 
 
