@@ -65,6 +65,7 @@ flowchart TD
 * **⚡ Server-Sent Events (SSE) Streaming:** Generates mock papers by streaming questions in real-time, preventing network timeout issues (e.g. Cloudflare 100s limits) and offering a smooth user experience.
 * **✅ Question Validation Engine:** Evaluates generated questions programmatically against strict standards (minimum length, placeholder checks, punctuation checks, complexity matching, and contextual repetition flags).
 * **🖐️ Drag-and-Drop Editor:** Reorder, view validation logs, add/remove, and pool optional questions using an interactive UI powered by `@dnd-kit/sortable` in Next.js.
+* **Upload moderation:** uploads are processed in the background; clean papers go live, and papers flagged as unreadable, not an exam paper, missing details, or a likely copy wait in an admin review queue. Exact copies are refused.
 
 ---
 
@@ -106,6 +107,8 @@ CREATE TABLE papers (
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ```
+
+Upload moderation adds `status` (`processing` / `live` / `review` / `rejected` / `failed`), `review_reasons` (JSONB flags), `status_note`, `file_sha256` (unique among non-failed papers), `upload_key` (names the stored file `backend/papers/<upload_key>.pdf`), `attempts`, `retry_at`, `reviewed_by` and `reviewed_at`. `init_db()` adds them at startup; existing papers become `live`.
 
 #### 2. `syllabi` Table
 
@@ -173,6 +176,9 @@ UPLOAD_LIMIT_ANON=5
 UPLOAD_LIMIT_STUDENT=20
 UPLOAD_LIMIT_FACULTY=10
 SYLLABUS_LIMIT=10
+
+# Background upload worker (default true; tests set false)
+PAPER_WORKER_ENABLED=true
 ```
 
 The frontend needs the same client id in `frontend/.env.local`: `NEXT_PUBLIC_AZURE_CLIENT_ID=<same id>`.
@@ -223,9 +229,15 @@ python backend/admin_cli.py make-admin you@outlook.com        # after signing in
 python backend/admin_cli.py reprocess --id 7                  # preview re-running paper 7
 python backend/admin_cli.py reprocess --id 7 --apply          # write it
 docker exec -it prepwise-backend python backend/admin_cli.py reprocess --all   # on the server
+python backend/admin_cli.py dedupe                  # preview duplicate groups
+python backend/admin_cli.py dedupe --keep 3 --apply # remove copies, keep paper 3 in its group
 ```
 
+Admins review, edit, take down, restore, retry and delete papers on **Admin → Papers** (`/admin/papers`).
+
 ### Deployment note
+
+Uploads are limited to 10 MB, but nginx allows only 1 MB by default: add `client_max_body_size 11m;` to the prepwise `server` block.
 
 nginx must *overwrite* the client IP header (`proxy_set_header X-Forwarded-For $remote_addr;`) so visitors can't fake their IP to reset the anonymous limit. The backend trusts `X-Forwarded-For` from any peer, which is safe only while the backend service publishes no `ports:` and only nginx shares its `nginx-network` — if either changes, restrict `FORWARDED_ALLOW_IPS` to nginx's address.
 
@@ -256,6 +268,8 @@ Pushing to `default` builds the backend image and Vercel deploys the frontend, s
 4. Apply the nginx real-IP config above.
 5. Run `python -m pytest` locally.
 6. After the new container starts, check its log for "Database initialisation failed" (the tables are created at startup and it isn't retried), then run `make-admin` for your account.
+7. Add `client_max_body_size 11m;` to nginx.
+8. After the new container starts: `docker compose exec backend python backend/admin_cli.py dedupe` to preview, then `... dedupe --apply` (add `--keep <id>` to choose which copy stays).
 
 Without the Entra/Vercel settings, generation and syllabus upload become unavailable to everyone (they now require faculty sign-in). Without `IP_HASH_SALT`, anonymous uploads fail with a 500.
 
@@ -265,7 +279,7 @@ Without the Entra/Vercel settings, generation and syllabus upload become unavail
 python -m pip install -r backend/requirements.txt -r backend/requirements-dev.txt && python -m pytest
 ```
 
-An optional `TEST_DATABASE_URL` runs the SQL quota test against a real Postgres database (e.g. a Neon branch) — never production. Run `python -m pytest` locally and make sure it passes before merging a pull request; the `test` job in CI runs on pushes to `default` and gates the image build, it does not run on pull requests.
+An optional `TEST_DATABASE_URL` runs the SQL tests (quota, paper store) against a real Postgres database — never production. A throwaway local one: `docker run -d --name prepwise-test-pg -e POSTGRES_PASSWORD=test -p 55432:5432 postgres:16-alpine`, then `TEST_DATABASE_URL=postgresql://postgres:test@127.0.0.1:55432/postgres python -m pytest`.
 
 ---
 
