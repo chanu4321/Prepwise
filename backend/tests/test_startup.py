@@ -13,6 +13,11 @@ EXPECTED_ROUTES = {
     ("GET", "/api/v1/me/uploads"),
     ("GET", "/api/v1/admin/users"),
     ("PATCH", "/api/v1/admin/users/{user_id}"),
+    ("GET", "/api/v1/admin/papers"),
+    ("PATCH", "/api/v1/admin/papers/{paper_id}"),
+    ("POST", "/api/v1/admin/papers/{paper_id}/status"),
+    ("DELETE", "/api/v1/admin/papers/{paper_id}"),
+    ("GET", "/api/v1/admin/papers/{paper_id}/file"),
     ("GET", "/health"),
 }
 
