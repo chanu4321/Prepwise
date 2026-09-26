@@ -1,0 +1,58 @@
+--- Page 1 ---
+[No. of Printed Pages-4] 2101
+CSE439 Enrol. No.
+[ET]
+END SEMESTER EXAMINATION: APRIL-MAY, 2023
+CLOUD SECURITY
+Time  3 Hrs. Maximum Marks: 60
+Note: Attempt questions from all sections as
+directed.
+SECTION A (24 Marks)
+Attempt any four questions out of five.
+Each question carries 06 marks.
+1. Define computer and network security. Explain in brief
+about hill cipher merits and demerits.
+2. Briefly explain the advantages and disadvantages of
+multi-tenancy cloud architecture.
+3. Explain in detail the various aspects for the need of
+virtualization in cloud computing.
+P.T.O.
+--- Page 2 ---
+2 2101
+CSE439
+in
+details.
+5. of
+can be compromised.
+SECTION - (20 Marks)
+Attempt any two questions out of three.
+Each question carries 10 marks.
+6. Convert "MEET ME" using Hill cipher with the key
+matrix Convert the cipher text back to plaintext.
+systems on VMWare GSX, VMWare ESX, and
+Microsoft virtual Servers.
+D. Diffenenttate the clene and templaie ii tirtlalization
+also with a suitable example explain the functionality
+of the Hypervisor.
+--- Page 3 ---
+CSE439 3 2101
+SECTION C (16 Marks)
+(Compulsory)
+9. (a) Carefully observe the following figure of the x
+VM Hypervisor of Sun's machine. Explain each
+layer's role and component including the hypervisor
+layer's functional details.
+domo VMO domUl VM1 domU2 VM2 domU3 VM3
+manager and contrcl S/W Davice Unmoddfiid software user Unmodilied software user Unmodilied software user
+AGP (Solaris OS) Guest OS (Xen Linux) Guest OS (Solaris OS) Guest OS (iiXXP Vista Unmodified guest OS Windows
+ACPI Backend Sackend SMEP 20031
+PCI A Frentend drivers dence -rontead drivers device AMD-V VT-1
+Control IF Safe HW IF channel Event Virtual CPU Viriual MMU
+1A-32 A--64 Sun WiM hyperrssor
+x54 x86
+Nardware (SMP,NMMU, hysiaa  memorryEthheeee,SSSSS/DDD
+(10)
+P.T.O.
+--- Page 4 ---
+CSE439 the 4 2101
+(6)

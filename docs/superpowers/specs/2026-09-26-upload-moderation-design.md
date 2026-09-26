@@ -167,7 +167,7 @@ Live papers only, everywhere public:
 - `POST /search/semantic`: vector filter plus `status = 'live'` in the SQL join.
 - RAG retrieval for the generator.
 
-`VectorService.search_similar(query, limit, with_payload=True, statuses=None)`: `statuses=None` means live only, implemented as `must_not status in [review, rejected]`, so legacy points without a status still count as live until the dedupe command tags them. The duplicate check passes `statuses` explicitly.
+`VectorService.search_similar(query, limit, with_payload=True)` only returns live points, implemented as `must_not status in [review, rejected]`, so legacy points without a status still count as live until the dedupe command tags them. The duplicate check uses a separate `VectorService.nearest_papers(vector, limit, exclude_id)` over every stored vector (only live, review and rejected papers have one).
 
 `reprocess` skips `processing` and `failed` rows and writes each vector with the row's current status.
 
@@ -228,6 +228,8 @@ Expected on production today: groups {2, 3, 4} and {10, 11}. The two "Cloud Sec 
 | 400 | `too_many_pages` | Over 20 pages |
 | 409 | `duplicate_paper` | Exact copy exists (body adds `paperId`, `paperStatus`) |
 | 409 | `invalid_transition` | Admin status change not allowed from the current status |
+| 400 | `invalid_request` | Reject or take down without a reason |
+| 503 | `search_index_unavailable` | Qdrant couldn't be updated during an admin change; nothing was changed |
 | 404 | `not_found` | Unknown upload key, paper id, or a non-live paper on public routes |
 
 ## 13. Testing

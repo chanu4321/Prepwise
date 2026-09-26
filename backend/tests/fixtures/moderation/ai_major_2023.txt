@@ -1,0 +1,84 @@
+--- Page 1 ---
+[No. of Printed Pages 4]]] 1355
+CSE401 Enrol. No.
+[ET]
+END SEMESTER EXAMINATION: APRIL-MAY, 2023
+ARTIFICIAL INTELLIGENCE
+Time: 3 Hrs. Maximum Marks: 60
+Note: Attempt questions from all sections as
+directed.
+SECTION -  24 Marks)
+Attempt any four questions out of five.
+Each question carries 06 marks.
+Before we can solve a problem using state space
+search, we must define an appropriate state space.
+Find a good state space representation of Missionaries
+and Cannibals problem.
+2. Describe different types of knowledge required to build
+an Expert System.
+3. How forward Kinematics determine the position and
+orientation of the end effector? Explain with example.
+P.T.O.
+--- Page 2 ---
+1355
+CSE401 2
+4. Give two applications area of robotics. How a robot
+get various sensory information? Discuss Image
+understanding process in robotics.
+s. 5. Explain the concept of Frames. Create a frame of
+the person Ram who is a doctor. He is of 40. His
+wife name is Sita. They have two children Babu and
+Gita. They live in 100 kps street in the city of Delhi
+in India. The zip code is 756005.
+SECTION B (20 Marks)
+Attempt any two questions out of three.
+Each question carries 10 marks.
+Generate a parse tree for the sentence "John went
+for a walk to the park with a golden statue." by using
+the following rules
+S>NNP P
+VP
+DT
+NP -> ''ohn' VI
+--- Page 3 ---
+CSE401 3 1355
+IN -> 'for' 'to'|| 'with'
+DT
+NN 'walk'
+M_>> 'statue'
+JJ -> 'golden'
+N->JJN
+PP-> IN NP
+(i) Using top-down parsing
+(ii) Using bottom-up parsing
+7. (a) Solve the following Crypt Arithmetic problem
+BANANA + GUAVA = ORANGE (4)
+(b) Give conceptual dependency representation for:
+(a) Sita cuts an apple with a knife.
+(b) The rose was given by rupa to anand.
+(c) Sanjay drove the car fast. (6)
+P.T.O.
+--- Page 4 ---
+1355
+CSE401 4
+s Why transition network is important for NLP?
+Differentiate Transition Network, Recursive Transition
+Network and Augmented Transition Network (ATN)
+by taking suitable example(s).
+SECTION C (16 Marks)
+(Compulsory)
+9. (a) Find the pruning nodes using the Alpha-Beta
+pruning algorithm for the below gaming tree
+max
+min
+max
+(8)
+min
+3 1 1 5 1 1 0 2 7 3 2 4
+(b) What is the significance of Expert-system
+approach to problem solving in the history of AI?
+How does it differ from for example, mean-ends
+analysis? How does it compare with AI approaches
+focusing on general mechanisms of intelligence?
+(8)
+(900)
