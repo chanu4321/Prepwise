@@ -2,6 +2,7 @@
 
     python backend/admin_cli.py make-admin you@outlook.com
     python backend/admin_cli.py reprocess --id 7 [--apply]
+    python backend/admin_cli.py dedupe [--keep 3] [--apply]
 """
 import argparse
 import sys
@@ -55,6 +56,11 @@ def main(argv: list[str] | None = None) -> int:
     selection.add_argument("--all", action="store_true", help="every paper")
     reprocess_parser.add_argument("--apply", action="store_true", help="write changes (default: preview only)")
 
+    dedupe_parser = commands.add_parser("dedupe", help="Find duplicate papers; remove them with --apply")
+    dedupe_parser.add_argument("--keep", type=int, action="append", default=[], dest="keep",
+                               help="paper id to keep in its group (repeatable; default: the oldest)")
+    dedupe_parser.add_argument("--apply", action="store_true", help="remove the duplicates (default: preview only)")
+
     args = parser.parse_args(argv)
 
     if args.command == "make-admin":
@@ -63,6 +69,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "reprocess":
         from services.reprocess import run_reprocess
         return run_reprocess(None if args.all else args.ids, apply=args.apply)
+    if args.command == "dedupe":
+        from services import dedupe
+        return dedupe.run_dedupe(set(args.keep), apply=args.apply)
     return 1
 
 

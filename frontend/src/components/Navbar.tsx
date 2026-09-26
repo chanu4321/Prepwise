@@ -35,7 +35,7 @@ export function Navbar() {
                             Generate Paper
                         </Link>
                         {me?.role === "admin" && (
-                            <Link href="/admin/users" className="flex items-center space-x-1 text-foreground/60 transition-colors hover:text-foreground/80">
+                            <Link href="/admin/papers" className="flex items-center space-x-1 text-foreground/60 transition-colors hover:text-foreground/80">
                                 <Shield className="h-4 w-4" />
                                 <span>Admin</span>
                             </Link>

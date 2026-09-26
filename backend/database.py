@@ -87,3 +87,23 @@ def init_db():
         """)
         cur.execute("ALTER TABLE papers ADD COLUMN IF NOT EXISTS uploaded_by INTEGER REFERENCES users(id);")
         cur.execute("ALTER TABLE syllabi ADD COLUMN IF NOT EXISTS uploaded_by INTEGER REFERENCES users(id);")
+
+        # Upload moderation (Part B): every existing paper becomes 'live'
+        cur.execute("""
+            ALTER TABLE papers
+                ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'live'
+                    CHECK (status IN ('processing', 'live', 'review', 'rejected', 'failed')),
+                ADD COLUMN IF NOT EXISTS review_reasons JSONB NOT NULL DEFAULT '[]'::jsonb,
+                ADD COLUMN IF NOT EXISTS status_note TEXT,
+                ADD COLUMN IF NOT EXISTS file_sha256 TEXT,
+                ADD COLUMN IF NOT EXISTS upload_key TEXT,
+                ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0,
+                ADD COLUMN IF NOT EXISTS retry_at TIMESTAMP,
+                ADD COLUMN IF NOT EXISTS reviewed_by INTEGER REFERENCES users(id),
+                ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMP;
+        """)
+        # One stored copy per file; a failed upload doesn't block uploading the same file again
+        cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS papers_active_sha256 ON papers (file_sha256) "
+                    "WHERE status <> 'failed';")
+        cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS papers_upload_key ON papers (upload_key);")
+        cur.execute("CREATE INDEX IF NOT EXISTS papers_status ON papers (status);")

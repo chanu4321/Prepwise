@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth, type Role } from "@/components/AuthProvider";
 import { AccessNotice } from "@/components/AccessNotice";
+import { AdminNav } from "@/components/AdminNav";
 import { apiFetch, describeApiError } from "@/lib/api";
 
 type AdminUser = {
@@ -57,6 +58,7 @@ export default function AdminUsersPage() {
 
     return (
         <div className="container mx-auto max-w-6xl px-4 py-12">
+            <AdminNav />
             <h1 className="mb-6 text-3xl font-bold">Users</h1>
             {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
             <div className="overflow-x-auto rounded-xl border border-border">

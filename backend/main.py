@@ -7,8 +7,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.routes import router as api_router
 from api.me import router as me_router
 from api.admin import router as admin_router
+from api.admin_papers import router as admin_papers_router
 from errors import install_error_handling
 from database import init_db
+from services.paper_worker import paper_worker, worker_enabled
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s", force=True)
 
@@ -21,7 +23,10 @@ async def lifespan(app: FastAPI):
         init_db()
     except Exception:
         logger.exception("Database initialisation failed; continuing so the API can still start")
+    if worker_enabled():
+        paper_worker.start()
     yield
+    paper_worker.stop()
 
 app = FastAPI(
     title="PrepWise API",
@@ -46,6 +51,7 @@ app.add_middleware(
 app.include_router(api_router, prefix="/api/v1")
 app.include_router(me_router, prefix="/api/v1")
 app.include_router(admin_router, prefix="/api/v1")
+app.include_router(admin_papers_router, prefix="/api/v1")
 
 @app.get("/")
 def read_root():

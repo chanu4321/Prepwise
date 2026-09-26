@@ -1,11 +1,10 @@
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
-from services.ocr_service import DocumentProcessor
 import ntpath
-import shutil
 import os
 import logging
 import json
+import re
 
 from typing import List
 
@@ -15,21 +14,17 @@ from auth.limits import generate_limit, syllabus_limit, upload_limit
 from auth.users import PostgresUserStore, User
 from database import db_cursor
 from errors import ApiError
-from services.paper_metadata import to_paper_fields
-from services.paper_store import PAPERS_DIR, insert_paper, resolve_paper_path
+from services.paper_store import (PAPERS_DIR, DuplicateFile, PostgresPaperStore, get_paper_store, new_upload_key,
+                                  papers_dir, resolve_paper_path, upload_status)
+from services.paper_worker import paper_worker
 from services.rag_service import RAGService
 from services.syllabus_service import get_syllabus_by_code, get_syllabus_owner, process_and_save_syllabus
+from services.upload_checks import (MAX_PAGES, MAX_UPLOAD_BYTES, FileTooLarge, count_pdf_pages,
+                                    duplicate_paper_error, filename_problem, remove_quietly, save_upload)
 from services.vector_service import VectorService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-# Store papers in 'backend/papers', resolved from the project root rather than the current directory
-processor = DocumentProcessor(upload_dir=resolve_paper_path(PAPERS_DIR))
-
-REQUIRED_METADATA = ("subjectCode", "subjectName", "monthYear", "time", "marks")
-METADATA_ATTEMPTS = 2
-
-_INVALID_FILENAME_CHARS = set('<>:"|?*')
 
 
 def _validated_pdf_upload(file: UploadFile) -> str:
@@ -40,15 +35,9 @@ def _validated_pdf_upload(file: UploadFile) -> str:
     filename, or raises ApiError(400, "invalid_file", ...).
     """
     name = ntpath.basename(file.filename or "")
-    if not name.lower().endswith(".pdf"):
-        raise ApiError(400, "invalid_file", "Only PDF files are supported.")
-    stem = name[:-len(".pdf")]
-    if (not stem.strip()
-            or len(name) > 200
-            or any(ord(ch) < 32 or ord(ch) == 127 for ch in name)
-            or any(ch in _INVALID_FILENAME_CHARS for ch in name)):
-        raise ApiError(400, "invalid_file",
-                       "Please rename the file using letters, numbers and simple punctuation, then upload it again.")
+    problem = filename_problem(name)
+    if problem:
+        raise ApiError(400, "invalid_file", problem)
 
     header = file.file.read(1024)
     file.file.seek(0)
@@ -56,44 +45,21 @@ def _validated_pdf_upload(file: UploadFile) -> str:
         raise ApiError(400, "invalid_file", "This file isn't a valid PDF.")
     return name
 
-def _extract_metadata_with_retry(file_path: str) -> dict:
-    """Header OCR + LLM metadata extraction, asking the LLM again if required fields come back empty."""
-    result: dict = {"text": "", "metadata": None}
-    for attempt in range(1, METADATA_ATTEMPTS + 1):
-        result = processor.process_pdf(file_path)
-        metadata = result.get("metadata") or {}
-        if all(metadata.get(field) for field in REQUIRED_METADATA):
-            break
-        logger.info("Metadata incomplete for %s on attempt %d", file_path, attempt)
-    return result
+def _too_large() -> ApiError:
+    return ApiError(413, "file_too_large",
+                    f"This file is over {MAX_UPLOAD_BYTES // (1024 * 1024)} MB. Compress it or split it, then try again.")
 
-def _index_paper(paper_id: int, file_path: str, filename: str, fields: dict, header_text: str) -> None:
-    """Best effort: OCR every page and store the embedding. The paper row is saved either way."""
-    try:
-        full_text = processor.extract_full_text(file_path)
-    except Exception:
-        logger.exception("Full-text OCR failed for %s; indexing the header text only", filename)
-        full_text = header_text
-    try:
-        stored = VectorService().upsert_paper(
-            paper_id=paper_id,
-            text=full_text,
-            metadata={"subject_code": fields["subject_code"], "subject_name": fields["subject_name"],
-                      "year": fields["year"], "filename": filename},
-        )
-        if not stored:
-            logger.error("Failed to store the embedding for paper %s", paper_id)
-    except Exception:
-        logger.exception("Vector indexing failed for paper %s", paper_id)
 
-@router.post("/documents/ingest")
+@router.post("/documents/ingest", status_code=202)
 def ingest_document(
     http_request: Request,
     file: UploadFile = File(...),
     user: User | None = Depends(optional_user),
     store: PostgresUserStore = Depends(get_user_store),
+    papers: PostgresPaperStore = Depends(get_paper_store),
 ):
-    """Uploads a PDF, runs OCR/metadata extraction, saves it, and indexes it for search."""
+    """Checks and stores an uploaded PDF. OCR, metadata, the automatic checks and indexing run in the
+    background worker; the uploader polls /documents/uploads/{uploadKey} for the result."""
     if user is not None and user.role is None:
         raise ApiError(403, "role_required", "Choose Student or Faculty to continue.")
     limit = upload_limit(user)
@@ -101,27 +67,46 @@ def ingest_document(
         raise ApiError(403, "forbidden", "Paper uploads need a student or verified faculty account.")
 
     filename = _validated_pdf_upload(file)
+    if file.size is not None and file.size > MAX_UPLOAD_BYTES:
+        raise _too_large()
 
-    subject = quota_subject(user, http_request)
-    enforce_quota(store, subject, "upload", limit)
+    upload_key = new_upload_key()
+    stored_name = f"{upload_key}.pdf"
+    destination = papers_dir() / stored_name
     try:
-        file_path = os.path.join(processor.upload_dir, filename)
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        result = _extract_metadata_with_retry(file_path)
-        fields = to_paper_fields(result.get("metadata"))
-        paper_id = insert_paper(
-            filename=filename,
-            file_path=f"{PAPERS_DIR}/{filename}",
-            fields=fields,
-            uploaded_by=user.id if user is not None else None,
-        )
-    except Exception:
-        refund_quota_if_counted(store, subject, "upload", limit)
+        file_sha256 = save_upload(file.file, destination, MAX_UPLOAD_BYTES)
+    except FileTooLarge:
+        raise _too_large()
+
+    try:
+        pages = count_pdf_pages(destination)
+        if pages is None:
+            raise ApiError(400, "invalid_file", "This file isn't a valid PDF.")
+        if pages > MAX_PAGES:
+            raise ApiError(400, "too_many_pages",
+                           f"This PDF has {pages} pages. Papers can have at most {MAX_PAGES}.")
+        existing = papers.find_active_by_hash(file_sha256)
+        if existing is not None:
+            raise duplicate_paper_error(existing)
+
+        subject = quota_subject(user, http_request)
+        enforce_quota(store, subject, "upload", limit)
+        try:
+            paper = papers.create_upload(filename, f"{PAPERS_DIR}/{stored_name}", file_sha256, upload_key,
+                                         user.id if user is not None else None)
+        except DuplicateFile:
+            # Another upload of the same file got in first
+            refund_quota_if_counted(store, subject, "upload", limit)
+            raise duplicate_paper_error(papers.find_active_by_hash(file_sha256))
+        except Exception:
+            refund_quota_if_counted(store, subject, "upload", limit)
+            raise
+    except BaseException:
+        remove_quietly(destination)
         raise
 
-    _index_paper(paper_id, file_path, filename, fields, result.get("text", ""))
-    return {"status": "success", "filename": filename, "db_id": paper_id, "data": result}
+    paper_worker.wake()
+    return {"id": paper.id, "uploadKey": upload_key, "filename": filename, "status": paper.status}
 
 @router.post("/syllabus/upload")
 def upload_syllabus(
@@ -169,7 +154,7 @@ def get_syllabus(subject_code: str, user: User = Depends(require_role("faculty",
 def get_documents():
     """Fetch all documents from NeonDB for the frontend."""
     with db_cursor() as cur:
-        cur.execute("SELECT id, filename, subject_code, subject_name, semester, year, time, marks FROM papers ORDER BY id DESC")
+        cur.execute("SELECT id, filename, subject_code, subject_name, semester, year, time, marks FROM papers WHERE status = 'live' ORDER BY id DESC")
         rows = cur.fetchall()
     return [
         {"id": row[0], "filename": row[1], "subjectCode": row[2], "subjectName": row[3],
@@ -181,7 +166,7 @@ def get_documents():
 def download_paper(paper_id: int):
     """Download a paper PDF by ID."""
     with db_cursor() as cur:
-        cur.execute("SELECT file_path, filename FROM papers WHERE id = %s", (paper_id,))
+        cur.execute("SELECT file_path, filename FROM papers WHERE id = %s AND status = 'live'", (paper_id,))
         row = cur.fetchone()
     if not row:
         raise ApiError(404, "not_found", "Paper not found.")
@@ -191,6 +176,17 @@ def download_paper(paper_id: int):
         logger.error("Paper %s is in the database but missing on disk at %s", paper_id, file_path)
         raise ApiError(404, "not_found", "This paper's file is missing.")
     return FileResponse(path=file_path, filename=filename, media_type="application/pdf")
+
+_UPLOAD_KEY = re.compile(r"^[0-9a-f]{32}$")
+
+
+@router.get("/documents/uploads/{upload_key}")
+def get_upload_status(upload_key: str, papers: PostgresPaperStore = Depends(get_paper_store)):
+    """An upload's progress. The key is unguessable, so this works for anonymous uploads too."""
+    paper = papers.get_by_upload_key(upload_key) if _UPLOAD_KEY.fullmatch(upload_key) else None
+    if paper is None:
+        raise ApiError(404, "not_found", "Upload not found.")
+    return upload_status(paper)
 
 @router.post("/search/semantic")
 def semantic_search(request: dict):
@@ -206,7 +202,7 @@ def semantic_search(request: dict):
     placeholders = ",".join(["%s"] * len(paper_ids))
     with db_cursor() as cur:
         cur.execute(
-            f"SELECT id, filename, subject_code, subject_name, semester, year, time, marks FROM papers WHERE id IN ({placeholders})",
+            f"SELECT id, filename, subject_code, subject_name, semester, year, time, marks FROM papers WHERE id IN ({placeholders}) AND status = 'live'",
             tuple(paper_ids),
         )
         rows = cur.fetchall()

@@ -7,6 +7,7 @@ from auth.deps import current_user, get_user_store, user_subject
 from auth.limits import limits_for
 from auth.users import PostgresUserStore, User
 from errors import ApiError
+from services.paper_store import PostgresPaperStore, get_paper_store, upload_status
 
 router = APIRouter()
 
@@ -39,3 +40,8 @@ def choose_role(choice: RoleChoice, user: User = Depends(current_user),
     if not store.set_role_once(user.id, choice.role):
         raise ApiError(409, "role_already_set", "Your role is already set. Ask an admin if it needs to change.")
     return me_payload(store.get(user.id), store)
+
+
+@router.get("/me/uploads")
+def my_uploads(user: User = Depends(current_user), papers: PostgresPaperStore = Depends(get_paper_store)):
+    return {"uploads": [upload_status(paper) for paper in papers.list_by_uploader(user.id)]}

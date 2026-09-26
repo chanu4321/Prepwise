@@ -7,10 +7,17 @@ EXPECTED_ROUTES = {
     ("POST", "/api/v1/search/semantic"),
     ("POST", "/api/v1/generate/mock-paper"),
     ("POST", "/api/v1/generate/mock-paper-stream"),
+    ("GET", "/api/v1/documents/uploads/{upload_key}"),
     ("GET", "/api/v1/me"),
     ("POST", "/api/v1/me/role"),
+    ("GET", "/api/v1/me/uploads"),
     ("GET", "/api/v1/admin/users"),
     ("PATCH", "/api/v1/admin/users/{user_id}"),
+    ("GET", "/api/v1/admin/papers"),
+    ("PATCH", "/api/v1/admin/papers/{paper_id}"),
+    ("POST", "/api/v1/admin/papers/{paper_id}/status"),
+    ("DELETE", "/api/v1/admin/papers/{paper_id}"),
+    ("GET", "/api/v1/admin/papers/{paper_id}/file"),
     ("GET", "/health"),
 }
 

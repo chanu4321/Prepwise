@@ -1,0 +1,27 @@
+--- Page 1 ---
+[ET] CSE439 Enroll. o..
+END SEMESTER EXAMINATION:: ppri--May, 0233
+Cloud Security
+Time:3.00 Hrs Maximum Marks :60
+Note:Attempt questions from all sections as directed.
+Section A: Attempt any Four questions out of Five. Each quesiion carries 66 aars. [24 Marks]
+If      e biic e  ce n't b  e    f   e cecttpngnn  tmetninn crcrtp eb  y   e  aaeeeeeeee,  hhn  oo do
+digital signatures work?
+Q2. Explain different kinds of security concern in case of PaaS and IaaS.
+Q3. Justify, how Multitenancy is the best properties of Cloud Computing.
+Q4. Explain Zero-Trust-Security Model and also discuss about how does a zero trust architecture works
+Q5. Justify the role of domestic law principles that should form the basis of any regulation.
+Section B: Atempt any two questions out of three.  ach question carries 10 marks. [20 Marks]
+Q6. Explain ESX Server Architecture and the Design of Virtual Machines using suitable diagram.
+Q7. What are the different advanced cyberattacks that are specific to VM migration? How to address Vi
+migration cyberattacks? Explain any 2 attacks mitigation strategy.
+Q8. Explain How Risk Analysis and Penetration Testing Are Different from Each Other.
+Section-C:Compulsory question [16 Marks]
+Q9.
+Xilinx is a provider of all programmable FPGAs, SoCs, MPSOCs and SD ICS. Viineeent      lou  oo   tt s 5
+SDN/NFV, Video/vision, industrial IoT, and 5G wireless.
+complete test cycles. 't
+Wit  eereessoon affreee  eeeeeeeeeeeeeeeeeeeeeeeeeerr (10)
+(a) (6)
+(b)
+********

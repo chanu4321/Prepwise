@@ -121,12 +121,13 @@ class FakeRag:
 
 
 @contextmanager
-def fake_db_cursor(rows):
-    """A db_cursor replacement whose fetchone/fetchall return the given rows."""
+def fake_db_cursor(rows, executed=None):
+    """A db_cursor replacement whose fetchone/fetchall return the given rows; SQL is appended to `executed`."""
 
     class _Cursor:
-        def execute(self, *args, **kwargs):
-            pass
+        def execute(self, sql, params=None):
+            if executed is not None:
+                executed.append((sql, params))
 
         def fetchone(self):
             return rows[0] if rows else None
@@ -156,9 +157,211 @@ class FakeProcessor:
         return self.full_text
 
 
-class FakeVectorService:
-    upserts: list = []
+import secrets
+from datetime import timedelta
 
-    def upsert_paper(self, paper_id, text, metadata):
-        FakeVectorService.upserts.append((paper_id, text, metadata))
+from services.paper_metadata import PAPER_FIELDS
+from services.paper_store import (FAILED_NOTE, LEASE_MINUTES, RETRY_DELAY_SECONDS, STATUSES, DuplicateFile,
+                                  Paper)
+
+
+class FakePaperStore:
+    """In-memory stand-in for PostgresPaperStore with the same method contract. `now` is a settable clock."""
+
+    def __init__(self):
+        self.papers: dict[int, Paper] = {}
+        self.retry_at: dict[int, datetime | None] = {}
+        self.users: dict[int, tuple[str | None, str | None]] = {}
+        self.now = datetime(2026, 9, 26, 12, 0, 0)
+        self._next_id = 1
+        self._next_user_id = 1000
+
+    # --- test helpers -------------------------------------------------------------------------
+    def add_user(self, name: str | None, email: str | None) -> int:
+        user_id = self._next_user_id
+        self._next_user_id += 1
+        self.users[user_id] = (name, email)
+        return user_id
+
+    def add_paper(self, filename="paper.pdf", file_path=None, status="live", fields=None, reasons=None,
+                  file_sha256=None, note=None, uploaded_by=None) -> Paper:
+        """Stores a paper in any status without going through the upload flow."""
+        paper = Paper(id=self._next_id, filename=filename, file_path=file_path or f"backend/papers/{filename}",
+                      fields=dict(fields or {k: None for k in PAPER_FIELDS}), status=status,
+                      review_reasons=list(reasons or []), status_note=note, file_sha256=file_sha256,
+                      upload_key=secrets.token_hex(16), uploaded_by=uploaded_by, uploaded_at=self.now)
+        self.papers[paper.id] = paper
+        self.retry_at[paper.id] = None
+        self._next_id += 1
+        return self._out(paper)
+
+    # --- PostgresPaperStore contract ------------------------------------------------------------
+    def _out(self, paper: Paper) -> Paper:
+        name, email = self.users.get(paper.uploaded_by, (None, None))
+        return replace(paper, fields=dict(paper.fields), review_reasons=list(paper.review_reasons),
+                       uploader_name=name, uploader_email=email)
+
+    def _active_owner(self, file_sha256, exclude_id=None):
+        return next((p for p in self.papers.values() if file_sha256 and p.file_sha256 == file_sha256
+                     and p.status != "failed" and p.id != exclude_id), None)
+
+    def create_upload(self, filename, file_path, file_sha256, upload_key, uploaded_by) -> Paper:
+        if self._active_owner(file_sha256):
+            raise DuplicateFile()
+        paper = Paper(id=self._next_id, filename=filename, file_path=file_path,
+                      fields={k: None for k in PAPER_FIELDS}, status="processing", file_sha256=file_sha256,
+                      upload_key=upload_key, uploaded_by=uploaded_by, uploaded_at=self.now)
+        self.papers[paper.id] = paper
+        self.retry_at[paper.id] = None
+        self._next_id += 1
+        return self._out(paper)
+
+    def get(self, paper_id):
+        paper = self.papers.get(paper_id)
+        return self._out(paper) if paper else None
+
+    def get_many(self, ids):
+        return [self._out(self.papers[i]) for i in sorted(set(ids)) if i in self.papers]
+
+    def get_by_upload_key(self, upload_key):
+        return next((self._out(p) for p in self.papers.values() if p.upload_key == upload_key), None)
+
+    def find_active_by_hash(self, file_sha256):
+        paper = self._active_owner(file_sha256)
+        return self._out(paper) if paper else None
+
+    def list_by_uploader(self, user_id, limit=50):
+        mine = sorted((p for p in self.papers.values() if p.uploaded_by == user_id), key=lambda p: -p.id)
+        return [self._out(p) for p in mine[:limit]]
+
+    def list_by_status(self, status):
+        return [self._out(p) for p in sorted(self.papers.values(), key=lambda p: -p.id) if p.status == status]
+
+    def list_all(self):
+        return [self._out(p) for p in sorted(self.papers.values(), key=lambda p: p.id)]
+
+    def counts(self):
+        return {status: sum(1 for p in self.papers.values() if p.status == status) for status in STATUSES}
+
+    def claim_next(self):
+        due = [p for p in sorted(self.papers.values(), key=lambda p: p.id)
+               if p.status == "processing" and (self.retry_at[p.id] is None or self.retry_at[p.id] <= self.now)]
+        if not due:
+            return None
+        paper = replace(due[0], attempts=due[0].attempts + 1)
+        self.papers[paper.id] = paper
+        self.retry_at[paper.id] = self.now + timedelta(minutes=LEASE_MINUTES)
+        return self._out(paper)
+
+    def finish(self, paper_id, fields, status, reasons, note):
+        paper = self.papers.get(paper_id)
+        if paper is None or paper.status != "processing":
+            return False
+        self.papers[paper_id] = replace(paper, fields=dict(fields), status=status,
+                                        review_reasons=list(reasons), status_note=note)
+        self.retry_at[paper_id] = None
         return True
+
+    def schedule_retry(self, paper_id, delay_seconds=RETRY_DELAY_SECONDS):
+        self.retry_at[paper_id] = self.now + timedelta(seconds=delay_seconds)
+
+    def mark_failed(self, paper_id, note=FAILED_NOTE):
+        if paper_id in self.papers:
+            self.papers[paper_id] = replace(self.papers[paper_id], status="failed", status_note=note)
+            self.retry_at[paper_id] = None
+
+    def update_details(self, paper_id, filename, fields, reviewer_id):
+        if paper_id not in self.papers:
+            return None
+        self.papers[paper_id] = replace(self.papers[paper_id], filename=filename, fields=dict(fields),
+                                        reviewed_by=reviewer_id, reviewed_at=self.now)
+        return self.get(paper_id)
+
+    def set_status(self, paper_id, status, note, reviewer_id):
+        paper = self.papers.get(paper_id)
+        if paper is None:
+            return None
+        if status != "failed" and self._active_owner(paper.file_sha256, exclude_id=paper_id):
+            raise DuplicateFile()
+        self.papers[paper_id] = replace(paper, status=status, status_note=note, reviewed_by=reviewer_id,
+                                        reviewed_at=self.now, attempts=0 if status == "processing" else paper.attempts)
+        self.retry_at[paper_id] = None
+        return self.get(paper_id)
+
+    def set_file_hash(self, paper_id, file_sha256):
+        paper = self.papers[paper_id]
+        if paper.status != "failed" and self._active_owner(file_sha256, exclude_id=paper_id):
+            raise DuplicateFile()
+        self.papers[paper_id] = replace(paper, file_sha256=file_sha256)
+
+    def delete(self, paper_id):
+        self.retry_at.pop(paper_id, None)
+        return self.papers.pop(paper_id, None) is not None
+
+    def count_file_users(self, file_path):
+        return sum(1 for p in self.papers.values() if p.file_path == file_path)
+
+    def seconds_until_next_due(self):
+        processing = [p for p in self.papers.values() if p.status == "processing"]
+        if not processing:
+            return None
+        due_times = [self.retry_at[p.id] or self.now for p in processing]
+        return (min(due_times) - self.now).total_seconds()
+
+
+from types import SimpleNamespace
+
+
+class FakeVectorIndex:
+    """In-memory stand-in for VectorService's paper methods. `neighbours` is what nearest_papers returns."""
+
+    def __init__(self, vector=(0.1, 0.2), fail_upsert=False, fail_payload=False, fail_nearest=False):
+        self.vector = list(vector) if vector else None
+        self.points: dict[int, dict] = {}
+        self.neighbours: list[tuple[int, str]] = []
+        self.embedded: list[str] = []
+        self.fail_upsert = fail_upsert
+        self.fail_payload = fail_payload
+        self.fail_nearest = fail_nearest
+
+    def get_embedding(self, text, input_type="passage"):
+        self.embedded.append(text)
+        return self.vector
+
+    def upsert_paper_vector(self, paper_id, vector, text, metadata, status):
+        if self.fail_upsert:
+            return False
+        self.points[paper_id] = {**metadata, "full_text": text, "status": status}
+        return True
+
+    def nearest_papers(self, vector, limit, exclude_id):
+        if self.fail_nearest:
+            raise RuntimeError("qdrant down")
+        found = [SimpleNamespace(id=i, score=0.9, payload={"full_text": text})
+                 for i, text in self.neighbours if i != exclude_id]
+        return found[:limit]
+
+    def set_paper_payload(self, paper_id, payload):
+        if self.fail_payload:
+            return False
+        self.points.setdefault(paper_id, {}).update(payload)
+        return True
+
+    def delete_paper(self, paper_id):
+        if self.fail_payload:
+            return False
+        self.points.pop(paper_id, None)
+        return True
+
+    def get_paper_texts(self, ids):
+        return {i: self.points[i].get("full_text", "") for i in ids if i in self.points}
+
+
+from pathlib import Path
+
+_FIXTURES = Path(__file__).parent / "fixtures" / "moderation"
+
+
+def moderation_fixture(name: str) -> str:
+    """Real OCR text of a production paper (see fixtures/moderation)."""
+    return (_FIXTURES / f"{name}.txt").read_text(encoding="utf-8")

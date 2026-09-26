@@ -36,6 +36,10 @@ COPY . /app/backend/
 # stays /app so relative paths like "backend/papers" still resolve to the volume
 ENV PYTHONPATH=/app/backend
 
+# The background upload worker runs only in the deployed image; a local backend pointed at the
+# production .env must not compete with it
+ENV PAPER_WORKER_ENABLED=true
+
 # Expose the port uvicorn will listen on
 EXPOSE 8000
 

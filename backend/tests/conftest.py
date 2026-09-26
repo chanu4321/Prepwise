@@ -15,6 +15,7 @@ os.environ["UPLOAD_LIMIT_ANON"] = "5"
 os.environ["UPLOAD_LIMIT_STUDENT"] = "20"
 os.environ["UPLOAD_LIMIT_FACULTY"] = "10"
 os.environ["SYLLABUS_LIMIT"] = "10"
+os.environ["PAPER_WORKER_ENABLED"] = "false"
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

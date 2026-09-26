@@ -8,6 +8,7 @@ export class ApiRequestError extends Error {
         public code: string,
         message: string,
         public retryAfterSeconds: number | null = null,
+        public details: Record<string, unknown> = {},
     ) {
         super(message);
     }
@@ -40,18 +41,20 @@ export async function apiFetch(path: string, init: RequestInit = {}, baseUrl: st
 
     const response = await fetch(`${baseUrl}${path}`, { ...init, headers });
     if (!response.ok) {
-        let body: { detail?: unknown; code?: unknown } = {};
+        let body: Record<string, unknown> = {};
         try {
             body = await response.json();
         } catch {
             // non-JSON error body
         }
+        const { detail, code, ...details } = body;
         const retryAfter = Number(response.headers.get("Retry-After"));
         throw new ApiRequestError(
             response.status,
-            typeof body.code === "string" ? body.code : "error",
-            typeof body.detail === "string" ? body.detail : "Something went wrong. Please try again.",
+            typeof code === "string" ? code : "error",
+            typeof detail === "string" ? detail : "Something went wrong. Please try again.",
             Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : null,
+            details,
         );
     }
     return response;
