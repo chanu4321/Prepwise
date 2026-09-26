@@ -138,7 +138,7 @@ The 15-minute `retry_at` is a lease. If the process dies mid-job (deploy, crash)
 
 **On error:** log it. If `attempts` < 3, set `retry_at = now() + 2 minutes`. Otherwise set `status = 'failed'` with note "We couldn't process this file. Try uploading it again later." Step 5 is idempotent, so a retry after a failure in step 6 is safe.
 
-**Idle:** wait on a `threading.Event` for up to 10 s. The upload endpoint sets the event, so new uploads start at once.
+**Idle:** when nothing is due, wait on a `threading.Event` until the next scheduled retry or lease expiry (at least 1 s, at most 1 hour). The upload endpoint and admin retry set the event, so new work starts at once. A fixed 10 s poll would keep the Neon database awake around the clock.
 
 ## 8. What uploaders see
 
@@ -167,7 +167,7 @@ Live papers only, everywhere public:
 - `POST /search/semantic`: vector filter plus `status = 'live'` in the SQL join.
 - RAG retrieval for the generator.
 
-`VectorService.search_similar(query, limit, with_payload=True)` only returns live points, implemented as `must_not status in [review, rejected]`, so legacy points without a status still count as live until the dedupe command tags them. The duplicate check uses a separate `VectorService.nearest_papers(vector, limit, exclude_id)` over every stored vector (only live, review and rejected papers have one).
+`VectorService.search_similar(query, limit, with_payload=True)` only returns live points, implemented as `must_not status in [processing, review, rejected, failed]`, so legacy points without a status still count as live until the dedupe command tags them. The duplicate check uses a separate `VectorService.nearest_papers(vector, limit, exclude_id)` over every stored vector (only live, review and rejected papers have one).
 
 `reprocess` skips `processing` and `failed` rows and writes each vector with the row's current status.
 
@@ -270,7 +270,7 @@ Tests use the existing fakes and `TEST_DATABASE_URL` (never production); the wor
 1. Merge PR #4 first (this branch is stacked on it), then this PR.
 2. nginx: add `client_max_body_size 11m;` to the prepwise server block. Do it together with the parked Cloudflare 525 fix.
 3. On the server: `docker compose pull && docker compose up -d`. `init_db` adds the columns, and existing papers stay live.
-4. `docker compose exec backend python admin_cli.py dedupe` to preview, then `... dedupe --apply [--keep 3]`.
+4. `docker compose exec backend python backend/admin_cli.py dedupe` to preview, then `... dedupe --apply [--keep 3]`.
 5. Vercel redeploys the frontend from `default`.
 
 ## 15. Out of scope

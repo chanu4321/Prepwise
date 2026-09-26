@@ -177,7 +177,8 @@ UPLOAD_LIMIT_STUDENT=20
 UPLOAD_LIMIT_FACULTY=10
 SYLLABUS_LIMIT=10
 
-# Background upload worker (default true; tests set false)
+# Background upload worker: off by default, so a local backend doesn't compete with the deployed
+# worker; the Docker image turns it on
 PAPER_WORKER_ENABLED=true
 ```
 
