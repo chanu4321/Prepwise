@@ -178,8 +178,8 @@ UPLOAD_LIMIT_FACULTY=10
 SYLLABUS_LIMIT=10
 
 # Background upload worker: off by default, so a local backend doesn't compete with the deployed
-# worker; the Docker image turns it on
-PAPER_WORKER_ENABLED=true
+# worker; the Docker image turns it on. Keep it false locally, where .env points at production.
+PAPER_WORKER_ENABLED=false
 ```
 
 The frontend needs the same client id in `frontend/.env.local`: `NEXT_PUBLIC_AZURE_CLIENT_ID=<same id>`.

@@ -1,7 +1,7 @@
 # PrepWise — Upload Moderation (Part B) Design
 
 **Date:** 2026-09-26
-**Status:** Approved in chat 2026-09-26; awaiting review of this written spec
+**Status:** Approved 2026-09-26
 **Scope:** Part B of the "proper product" work: upload auto-checks, review queue, duplicate detection, unique stored filenames, upload limits, background processing, and cleanup of the duplicates already in production. Duration awareness and the OCR line-grouping fix are separate items that come after this one.
 
 ## 1. Goal
@@ -114,7 +114,7 @@ Text overlap: `RAGService._questions_only` on both texts (drops the exam header 
 
 ## 7. Background worker
 
-`services/paper_worker.py`: one daemon thread started in `main.lifespan` after `init_db()` and stopped on shutdown. It is disabled when `PAPER_WORKER_ENABLED=false` (tests set this). Production runs one uvicorn process, so there is exactly one worker. The claim query below stays correct if that ever changes.
+`services/paper_worker.py`: one daemon thread started in `main.lifespan` after `init_db()` and stopped on shutdown. It runs only when `PAPER_WORKER_ENABLED=true`, which the Docker image sets; anywhere else, such as a local backend whose `.env` points at production, it stays off. Production runs one uvicorn process, so there is exactly one worker. The claim query below stays correct if that ever changes.
 
 **Claim** the oldest due job:
 
@@ -208,7 +208,7 @@ Delete asks for confirmation.
 
 ## 11. Cleaning up existing duplicates (`admin_cli.py dedupe`)
 
-`python admin_cli.py dedupe [--keep ID ...] [--apply]`, preview by default:
+`python backend/admin_cli.py dedupe [--keep ID ...] [--apply]`, preview by default:
 
 1. Hashes every stored file. A missing file is reported and skipped.
 2. Groups papers that share a hash, or whose texts (from Qdrant) overlap by 0.5 or more under the §6 rule. Uses union-find, so chains of copies end up in one group.
