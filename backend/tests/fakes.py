@@ -352,3 +352,13 @@ class FakeVectorIndex:
 
     def get_paper_texts(self, ids):
         return {i: self.points[i].get("full_text", "") for i in ids if i in self.points}
+
+
+from pathlib import Path
+
+_FIXTURES = Path(__file__).parent / "fixtures" / "moderation"
+
+
+def moderation_fixture(name: str) -> str:
+    """Real OCR text of a production paper (see fixtures/moderation)."""
+    return (_FIXTURES / f"{name}.txt").read_text(encoding="utf-8")
