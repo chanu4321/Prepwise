@@ -12,11 +12,12 @@ logger = logging.getLogger(__name__)
 
 REQUIRED_METADATA = ("subjectCode", "subjectName", "monthYear", "time", "marks")
 METADATA_ATTEMPTS = 2
-IDLE_SECONDS = 10
+IDLE_FALLBACK_SECONDS = 3600
+MIN_IDLE_SECONDS = 1.0
 
 
 def worker_enabled() -> bool:
-    return os.getenv("PAPER_WORKER_ENABLED", "true").strip().lower() != "false"
+    return os.getenv("PAPER_WORKER_ENABLED", "").strip().lower() == "true"
 
 
 def extract_metadata_with_retry(processor, file_path: str) -> dict:
@@ -31,14 +32,28 @@ def extract_metadata_with_retry(processor, file_path: str) -> dict:
     return result
 
 
+def _delete_vector_quietly(vectors, paper_id: int) -> None:
+    """Best-effort vector cleanup for a paper that isn't live. Ignores the result and never raises."""
+    try:
+        vectors.delete_paper(paper_id)
+    except Exception:
+        logger.exception("Couldn't delete the vector for paper %s", paper_id)
+
+
 def process_paper(paper: Paper, store, processor, vectors) -> None:
     """Runs one claimed paper through OCR, metadata, embedding and the checks, then marks it live or review.
     Never raises: a failure is retried later, and the third one marks the paper failed."""
     pdf_path = resolve_paper_path(paper.file_path)
     try:
+        if paper.attempts > MAX_ATTEMPTS:
+            logger.error("Paper %s was claimed %d times without finishing; marking it failed", paper.id, paper.attempts)
+            store.mark_failed(paper.id)
+            _delete_vector_quietly(vectors, paper.id)
+            return
         if not os.path.exists(pdf_path):
             logger.error("Paper %s has no file at %s", paper.id, pdf_path)
             store.mark_failed(paper.id)
+            _delete_vector_quietly(vectors, paper.id)
             return
         header = extract_metadata_with_retry(processor, pdf_path)
         fields = to_paper_fields(header.get("metadata"))
@@ -54,13 +69,18 @@ def process_paper(paper: Paper, store, processor, vectors) -> None:
                     "year": fields["year"], "filename": paper.filename}
         if not vectors.upsert_paper_vector(paper.id, vector, full_text, metadata, status):
             raise RuntimeError("storing the vector failed")
-        store.finish(paper.id, fields, status, reasons, REVIEW_NOTE if reasons else None)
+        if not store.finish(paper.id, fields, status, reasons, REVIEW_NOTE if reasons else None):
+            logger.warning("Paper %s was deleted or changed before it finished; removing the vector it just wrote",
+                           paper.id)
+            _delete_vector_quietly(vectors, paper.id)
+            return
         logger.info("Paper %s processed: %s %s", paper.id, status, [r["code"] for r in reasons])
     except Exception:
         logger.exception("Processing paper %s failed (attempt %d of %d)", paper.id, paper.attempts, MAX_ATTEMPTS)
         try:
             if paper.attempts >= MAX_ATTEMPTS:
                 store.mark_failed(paper.id)
+                _delete_vector_quietly(vectors, paper.id)
             else:
                 store.schedule_retry(paper.id)
         except Exception:
@@ -83,7 +103,7 @@ class PaperWorker:
     """One background thread that processes uploads one at a time."""
 
     def __init__(self, store_factory=PostgresPaperStore, processor_factory=_default_processor,
-                 vectors_factory=_default_vectors, idle_seconds: float = IDLE_SECONDS):
+                 vectors_factory=_default_vectors, idle_seconds: float = IDLE_FALLBACK_SECONDS):
         self._store_factory = store_factory
         self._processor_factory = processor_factory
         self._vectors_factory = vectors_factory
@@ -117,6 +137,18 @@ class PaperWorker:
         process_paper(paper, store, processor, vectors)
         return True
 
+    def idle_wait(self, store) -> float:
+        """How long to sleep before checking the queue again: as soon as the next retry or lease is due
+        (at least MIN_IDLE_SECONDS), but never longer than self._idle_seconds."""
+        try:
+            due = store.seconds_until_next_due()
+        except Exception:
+            logger.exception("Couldn't check when the next paper is due; using the idle fallback")
+            return self._idle_seconds
+        if due is None:
+            return self._idle_seconds
+        return max(MIN_IDLE_SECONDS, min(self._idle_seconds, due))
+
     def _run(self) -> None:
         deps = None
         while not self._stop.is_set():
@@ -127,7 +159,8 @@ class PaperWorker:
                     continue
             except Exception:
                 logger.exception("Paper worker error; trying again shortly")
-            self._wake.wait(self._idle_seconds)
+            wait = self.idle_wait(deps[0]) if deps is not None else min(60, self._idle_seconds)
+            self._wake.wait(wait)
             self._wake.clear()
 
 

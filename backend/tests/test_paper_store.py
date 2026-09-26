@@ -121,6 +121,35 @@ def test_finish_saves_the_result_and_ends_processing(backend):
     assert store.claim_next() is None
 
 
+def test_finish_on_a_paper_that_is_no_longer_processing_changes_nothing(backend):
+    store = backend.store
+    paper = upload(store, "f2")
+    store.claim_next()
+    store.finish(paper.id, FIELDS, "live", [], None)
+    live = store.get(paper.id)
+    assert store.finish(paper.id, FIELDS, "review", [{"code": "x"}], "note") is False
+    unchanged = store.get(paper.id)
+    assert (unchanged.status, unchanged.fields, unchanged.review_reasons, unchanged.status_note) == \
+           (live.status, live.fields, live.review_reasons, live.status_note)
+
+
+def test_seconds_until_next_due_follows_the_paper_through_its_life(backend):
+    store = backend.store
+    paper = upload(store, "due1")
+    assert store.seconds_until_next_due() <= 1
+    store.claim_next()
+    due_after_claim = store.seconds_until_next_due()
+    assert 890 < due_after_claim <= 900
+    store.schedule_retry(paper.id)
+    due_after_retry = store.seconds_until_next_due()
+    assert 110 < due_after_retry <= 120
+
+
+def test_seconds_until_next_due_is_none_when_nothing_is_processing():
+    # Only on the fake: the shared throwaway database may have other tests' processing rows.
+    assert FakePaperStore().seconds_until_next_due() is None
+
+
 def test_mark_failed_uses_the_failure_note(backend):
     store = backend.store
     paper = upload(store, "m1")

@@ -190,14 +190,17 @@ class PostgresPaperStore:
             row = cur.fetchone()
         return self.get(row[0]) if row else None
 
-    def finish(self, paper_id: int, fields: dict, status: str, reasons: list, note: str | None) -> None:
+    def finish(self, paper_id: int, fields: dict, status: str, reasons: list, note: str | None) -> bool:
+        """Completes a claimed paper. Returns False (and changes nothing) if it's no longer 'processing',
+        e.g. an admin deleted or changed it while the worker was still running."""
         with db_cursor() as cur:
             cur.execute(
                 "UPDATE papers SET subject_code = %s, subject_name = %s, semester = %s, year = %s, time = %s, "
                 "marks = %s, status = %s, review_reasons = %s::jsonb, status_note = %s, retry_at = NULL "
-                "WHERE id = %s",
+                "WHERE id = %s AND status = 'processing' RETURNING id",
                 (*(fields[k] for k in PAPER_FIELDS), status, json.dumps(reasons), note, paper_id),
             )
+            return cur.fetchone() is not None
 
     def schedule_retry(self, paper_id: int, delay_seconds: int = RETRY_DELAY_SECONDS) -> None:
         with db_cursor() as cur:
@@ -249,6 +252,17 @@ class PostgresPaperStore:
         with db_cursor() as cur:
             cur.execute("SELECT count(*) FROM papers WHERE file_path = %s", (file_path,))
             return cur.fetchone()[0]
+
+    def seconds_until_next_due(self) -> float | None:
+        """Seconds until the earliest 'processing' paper is due (0 or below means due now), or None
+        when nothing is processing."""
+        with db_cursor() as cur:
+            cur.execute(
+                "SELECT EXTRACT(EPOCH FROM (min(COALESCE(retry_at, now())) - now())) FROM papers "
+                "WHERE status = 'processing'"
+            )
+            value = cur.fetchone()[0]
+        return float(value) if value is not None else None
 
 
 def get_paper_store() -> PostgresPaperStore:

@@ -254,10 +254,13 @@ class FakePaperStore:
         return self._out(paper)
 
     def finish(self, paper_id, fields, status, reasons, note):
-        if paper_id in self.papers:
-            self.papers[paper_id] = replace(self.papers[paper_id], fields=dict(fields), status=status,
-                                            review_reasons=list(reasons), status_note=note)
-            self.retry_at[paper_id] = None
+        paper = self.papers.get(paper_id)
+        if paper is None or paper.status != "processing":
+            return False
+        self.papers[paper_id] = replace(paper, fields=dict(fields), status=status,
+                                        review_reasons=list(reasons), status_note=note)
+        self.retry_at[paper_id] = None
+        return True
 
     def schedule_retry(self, paper_id, delay_seconds=RETRY_DELAY_SECONDS):
         self.retry_at[paper_id] = self.now + timedelta(seconds=delay_seconds)
@@ -297,6 +300,13 @@ class FakePaperStore:
 
     def count_file_users(self, file_path):
         return sum(1 for p in self.papers.values() if p.file_path == file_path)
+
+    def seconds_until_next_due(self):
+        processing = [p for p in self.papers.values() if p.status == "processing"]
+        if not processing:
+            return None
+        due_times = [self.retry_at[p.id] or self.now for p in processing]
+        return (min(due_times) - self.now).total_seconds()
 
 
 from types import SimpleNamespace

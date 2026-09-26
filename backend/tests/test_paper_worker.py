@@ -1,3 +1,4 @@
+import dataclasses
 import threading
 import time
 from datetime import timedelta
@@ -5,7 +6,7 @@ from datetime import timedelta
 import pytest
 
 from services.paper_store import FAILED_NOTE, REVIEW_NOTE
-from services.paper_worker import PaperWorker, process_paper
+from services.paper_worker import IDLE_FALLBACK_SECONDS, PaperWorker, process_paper, worker_enabled
 from tests.fakes import FakePaperStore, FakeProcessor, FakeVectorIndex, moderation_fixture
 
 EXAM = moderation_fixture("ai_major_2023")
@@ -77,15 +78,18 @@ def test_a_failed_step_is_retried_later_not_published(store, pdf, tmp_path, vect
 
 def test_third_failure_marks_the_paper_failed(store, pdf, tmp_path):
     processor = FakeProcessor(tmp_path, METADATA, fail=True)
+    vectors = FakeVectorIndex()
     paper = claimed(store, pdf)
+    vectors.points[paper.id] = {"status": "processing"}  # a vector written by an earlier, since-retried attempt
     for attempt in range(1, 4):
         assert paper.attempts == attempt
-        process_paper(paper, store, processor, FakeVectorIndex())
+        process_paper(paper, store, processor, vectors)
         store.now += timedelta(minutes=3)
         paper = store.claim_next()
     assert paper is None
     failed = store.list_all()[0]
     assert (failed.status, failed.status_note) == ("failed", FAILED_NOTE)
+    assert failed.id not in vectors.points
 
 
 def test_missing_file_fails_at_once(store, tmp_path):
@@ -93,6 +97,85 @@ def test_missing_file_fails_at_once(store, tmp_path):
     paper = store.claim_next()
     process_paper(paper, store, FakeProcessor(tmp_path, METADATA, full_text=EXAM), FakeVectorIndex())
     assert store.get(paper.id).status == "failed"
+
+
+def test_a_paper_claimed_past_the_attempt_limit_is_failed_without_running_the_processor(store, pdf, tmp_path):
+    """A job that keeps killing the process (e.g. OOM) never even reaches the except block, but claim_next
+    still bumps `attempts` past MAX_ATTEMPTS each time it's leased. That must be caught up front."""
+    calls = []
+
+    class RecordingProcessor:
+        def process_pdf(self, file_path):
+            calls.append(file_path)
+            return {"text": "", "metadata": {}}
+
+        def extract_full_text(self, file_path):
+            calls.append(file_path)
+            return "text"
+
+    store.create_upload("a.pdf", str(pdf), "f" * 64, "k" * 32, None)
+    paper_id = store.list_all()[0].id
+    store.papers[paper_id] = dataclasses.replace(store.papers[paper_id], attempts=3)
+    paper = store.claim_next()
+    assert paper.attempts == 4
+    process_paper(paper, store, RecordingProcessor(), FakeVectorIndex())
+    done = store.get(paper.id)
+    assert (done.status, done.status_note) == ("failed", FAILED_NOTE)
+    assert calls == []
+
+
+def test_finish_returning_false_removes_the_vector_it_just_wrote(pdf, tmp_path):
+    """Simulates an admin deleting or changing the paper while the worker was still processing it."""
+
+    class NoLongerProcessingStore(FakePaperStore):
+        def finish(self, paper_id, fields, status, reasons, note):
+            return False
+
+    store = NoLongerProcessingStore()
+    vectors = FakeVectorIndex()
+    paper = claimed(store, pdf)
+    process_paper(paper, store, FakeProcessor(tmp_path, METADATA, full_text=EXAM), vectors)
+    assert paper.id not in vectors.points
+
+
+@pytest.mark.parametrize("value", ["false", "yes"])
+def test_worker_enabled_is_false_for_anything_but_true(monkeypatch, value):
+    monkeypatch.setenv("PAPER_WORKER_ENABLED", value)
+    assert worker_enabled() is False
+
+
+def test_worker_enabled_is_false_when_unset(monkeypatch):
+    monkeypatch.delenv("PAPER_WORKER_ENABLED", raising=False)
+    assert worker_enabled() is False
+
+
+@pytest.mark.parametrize("value", ["true", " TRUE "])
+def test_worker_enabled_is_true_for_true_variants(monkeypatch, value):
+    monkeypatch.setenv("PAPER_WORKER_ENABLED", value)
+    assert worker_enabled() is True
+
+
+def test_idle_wait_falls_back_when_nothing_is_processing():
+    assert PaperWorker().idle_wait(FakePaperStore()) == IDLE_FALLBACK_SECONDS
+
+
+def test_idle_wait_matches_a_scheduled_retry(store, pdf):
+    paper = claimed(store, pdf)
+    store.schedule_retry(paper.id)
+    assert PaperWorker().idle_wait(store) == 120
+
+
+def test_idle_wait_is_at_least_one_second_for_a_due_paper(store, pdf):
+    store.create_upload("due.pdf", str(pdf), "f" * 64, "k" * 32, None)  # processing, never claimed: due now
+    assert PaperWorker().idle_wait(store) == 1.0
+
+
+def test_idle_wait_falls_back_when_the_store_raises():
+    class RaisingStore(FakePaperStore):
+        def seconds_until_next_due(self):
+            raise RuntimeError("db down")
+
+    assert PaperWorker().idle_wait(RaisingStore()) == IDLE_FALLBACK_SECONDS
 
 
 def test_run_once_reports_whether_there_was_work(store, pdf, tmp_path):
