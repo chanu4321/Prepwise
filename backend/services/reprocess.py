@@ -13,6 +13,9 @@ logger = logging.getLogger(__name__)
 STATUSES = ("preview", "updated", "unchanged", "skipped", "failed")
 _MARKERS = {"preview": "*", "updated": "+", "unchanged": "=", "skipped": "-", "failed": "x"}
 
+# The upload worker owns these; reprocessing them would race it or index a paper that never finished
+WORKER_STATUSES = ("processing", "failed")
+
 
 @dataclass
 class ReprocessResult:
@@ -33,6 +36,9 @@ def diff_fields(old: dict, merged: dict) -> dict:
 
 
 def reprocess_paper(row: PaperRow, processor, vector_service, update_metadata, apply: bool) -> ReprocessResult:
+    if row.status in WORKER_STATUSES:
+        return ReprocessResult(row.id, row.filename, "skipped",
+                               message=f"paper is {row.status}; the upload worker handles it")
     pdf_path = resolve_paper_path(row.file_path)
     if not os.path.exists(pdf_path):
         return ReprocessResult(row.id, row.filename, "skipped", message=f"PDF not found at {pdf_path}")
@@ -51,7 +57,7 @@ def reprocess_paper(row: PaperRow, processor, vector_service, update_metadata, a
             return ReprocessResult(row.id, row.filename, "failed", changes, "embedding failed; nothing was changed")
         payload = {"subject_code": merged["subject_code"], "subject_name": merged["subject_name"],
                    "year": merged["year"], "filename": row.filename}
-        if not vector_service.upsert_paper_vector(row.id, vector, full_text, payload):
+        if not vector_service.upsert_paper_vector(row.id, vector, full_text, payload, row.status):
             return ReprocessResult(row.id, row.filename, "failed", changes, "Qdrant update failed; nothing was changed")
         if not changes:
             return ReprocessResult(row.id, row.filename, "unchanged", changes,

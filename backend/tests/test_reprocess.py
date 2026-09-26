@@ -27,13 +27,15 @@ class Vectors:
     def __init__(self, vector=(0.1, 0.2)):
         self.vector = list(vector) if vector else None
         self.upserts = []
+        self.statuses = []
 
     def get_embedding(self, text, input_type="passage"):
         assert input_type == "passage"
         return self.vector
 
-    def upsert_paper_vector(self, paper_id, vector, text, metadata):
+    def upsert_paper_vector(self, paper_id, vector, text, metadata, status):
         self.upserts.append((paper_id, text, metadata))
+        self.statuses.append(status)
         return True
 
 
@@ -146,3 +148,19 @@ def test_metadata_save_failure_is_reported_but_vector_already_updated(row):
     assert result.changes == {"subject_code": ("1T402", "IT402")}
     assert "re-run" in result.message
     assert len(vectors.upserts) == 1
+
+
+def test_apply_keeps_the_papers_status_in_the_index(row):
+    vectors = Vectors()
+    in_review = PaperRow(id=row.id, filename=row.filename, file_path=row.file_path, fields=dict(OLD), status="review")
+    reprocess_paper(in_review, Processor({"subjectCode": "it 402"}), vectors, lambda *a: None, apply=True)
+    assert vectors.statuses == ["review"]
+
+
+@pytest.mark.parametrize("status", ["processing", "failed"])
+def test_papers_the_upload_worker_owns_are_skipped(row, status):
+    owned = PaperRow(id=row.id, filename=row.filename, file_path=row.file_path, fields=dict(OLD), status=status)
+    processor, vectors = Processor({"subjectCode": "it 402"}), Vectors()
+    result = reprocess_paper(owned, processor, vectors, lambda *a: None, apply=True)
+    assert result.status == "skipped" and status in result.message
+    assert vectors.upserts == [] and processor.full_text_calls == 0

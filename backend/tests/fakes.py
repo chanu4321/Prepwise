@@ -304,3 +304,51 @@ class FakePaperStore:
 
     def count_file_users(self, file_path):
         return sum(1 for p in self.papers.values() if p.file_path == file_path)
+
+
+from types import SimpleNamespace
+
+
+class FakeVectorIndex:
+    """In-memory stand-in for VectorService's paper methods. `neighbours` is what nearest_papers returns."""
+
+    def __init__(self, vector=(0.1, 0.2), fail_upsert=False, fail_payload=False, fail_nearest=False):
+        self.vector = list(vector) if vector else None
+        self.points: dict[int, dict] = {}
+        self.neighbours: list[tuple[int, str]] = []
+        self.embedded: list[str] = []
+        self.fail_upsert = fail_upsert
+        self.fail_payload = fail_payload
+        self.fail_nearest = fail_nearest
+
+    def get_embedding(self, text, input_type="passage"):
+        self.embedded.append(text)
+        return self.vector
+
+    def upsert_paper_vector(self, paper_id, vector, text, metadata, status):
+        if self.fail_upsert:
+            return False
+        self.points[paper_id] = {**metadata, "full_text": text, "status": status}
+        return True
+
+    def nearest_papers(self, vector, limit, exclude_id):
+        if self.fail_nearest:
+            raise RuntimeError("qdrant down")
+        found = [SimpleNamespace(id=i, score=0.9, payload={"full_text": text})
+                 for i, text in self.neighbours if i != exclude_id]
+        return found[:limit]
+
+    def set_paper_payload(self, paper_id, payload):
+        if self.fail_payload:
+            return False
+        self.points.setdefault(paper_id, {}).update(payload)
+        return True
+
+    def delete_paper(self, paper_id):
+        if self.fail_payload:
+            return False
+        self.points.pop(paper_id, None)
+        return True
+
+    def get_paper_texts(self, ids):
+        return {i: self.points[i].get("full_text", "") for i in ids if i in self.points}
