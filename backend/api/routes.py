@@ -283,7 +283,7 @@ async def generate_mock_paper_stream(
             sections = request["sections"]
 
             # Retrieve context once upfront
-            similar_papers = rag_service._retrieve_similar_papers(subject, limit=3)
+            similar_papers = rag_service._retrieve_similar_papers(subject)
             if not similar_papers:
                 yield _sse({"type": "error", "message": "No past papers found for this subject yet."})
                 return

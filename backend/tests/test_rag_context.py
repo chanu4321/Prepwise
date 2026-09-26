@@ -57,6 +57,27 @@ def test_retrieval_keeps_a_closely_related_subject_and_respects_the_limit(rag):
     assert [p["filename"] for p in papers] == ["Intro to AIML 2022.pdf", "AI Major 2023(1).PDF", "AI Major 2023.pdf"]
 
 
+def test_five_papers_are_used_by_default(rag):
+    FakeVectors.results = [(0.47 - i * 0.01, f"SPM {i}.pdf") for i in range(8)]
+    papers = rag._retrieve_similar_papers("Software Project Management")
+    assert [p["filename"] for p in papers] == [f"SPM {i}.pdf" for i in range(5)]
+    assert FakeVectors.calls == [("Software Project Management", 10)]
+
+
+def test_the_stream_retrieves_the_default_number_of_papers(client, auth_headers, monkeypatch):
+    seen = []
+
+    class Rag:
+        def _retrieve_similar_papers(self, subject, **kwargs):
+            seen.append(kwargs)
+            return []
+
+    monkeypatch.setattr("api.routes.RAGService", Rag)
+    client.post("/api/v1/generate/mock-paper-stream", headers=auth_headers(role="faculty"),
+                json={"subject": "SPM", "sections": [{"name": "A", "questions": [{"number": 1}]}]})
+    assert seen == [{}]
+
+
 def test_context_drops_the_exam_header_and_page_markers_but_keeps_every_question(rag):
     context = rag._extract_paper_context([{"filename": "SPM Major 2025.pdf", "ocrText": HEADER + BODY}])
     assert context.startswith("=== SPM Major 2025.pdf ===\nSECTION - A (24 Marks)")
@@ -86,6 +107,8 @@ def test_question_prompt_sends_all_papers_and_asks_for_grounded_questions(rag):
     assert "END-OF-A" in prompt and "1. Define risk." in prompt
     assert "for style only" not in prompt
     assert "PAST PAPER QUESTIONS" in prompt
+    assert "what they ask" in prompt and "how they ask it" in prompt
+    assert "the way the past papers themselves vary" in prompt
     assert "Do not copy or lightly reword" in prompt
 
 
@@ -116,4 +139,5 @@ def test_batched_prompt_sends_all_papers_and_asks_for_grounded_questions(rag, mo
     rag._generate_section(section, context, "Software Project Management")
 
     assert "END-OF-A" in sent[0]
+    assert "how they ask it" in sent[0]
     assert "Do not copy or lightly reword" in sent[0]

@@ -27,8 +27,12 @@ PAGE_MARKER = re.compile(r"^--- Page \d+ ---$")
 PAGE_FOOTER = re.compile(r"^\W*P\.?\s*T\.?\s*O\.?\W*$", re.IGNORECASE)
 # Where the questions start: the first section heading or question 1
 QUESTIONS_START = re.compile(r"^\W{0,3}(section\b|q(uestion)?\.?\s*1\b|1\s*[.)])", re.IGNORECASE | re.MULTILINE)
-GROUNDING_RULE = ("Ground {target} in the past papers below: pick a concept, topic or problem type they examine{scope}, "
-                  "and ask it from a new angle or with a new scenario. Do not copy or lightly reword a past question.")
+PAPERS_PER_PROMPT = 5
+GROUNDING_RULE = ("Model {target} on the past papers below, both in what they ask (the concepts, topics and problem types "
+                  "they examine{scope}) and in how they ask it (question forms such as definitions, differences, numericals "
+                  "or case scenarios, the phrasing, the length, how sub-parts are split, and the depth expected for the marks). "
+                  "Write a new question in that style, varying the scenario, data or angle the way the past papers themselves "
+                  "vary. Do not copy or lightly reword a past question.")
 
 class RAGService:
     def __init__(self):
@@ -48,7 +52,7 @@ class RAGService:
         sections = config.get("sections", [])
         
         # 1. Retrieve relevant past papers
-        similar_papers = self._retrieve_similar_papers(subject, limit=3)
+        similar_papers = self._retrieve_similar_papers(subject)
         
         if not similar_papers:
             logger.warning(f"No papers found for subject: {subject}")
@@ -74,7 +78,7 @@ class RAGService:
             "totalSections": len(generated_sections)
         }
     
-    def _retrieve_similar_papers(self, subject: str, limit: int = 3) -> List[Dict]:
+    def _retrieve_similar_papers(self, subject: str, limit: int = PAPERS_PER_PROMPT) -> List[Dict]:
         """Retrieve similar papers using vector search."""
         try:
             # Semantic search for subject; extra candidates make up for duplicates and other subjects dropped below
@@ -546,8 +550,8 @@ Generate a NEW examination question for {subject} that tests the "{bloom_level}"
 REQUIREMENTS:
 1. Use the action verb "{verb}" or similar ({', '.join(BLOOM_VERBS[bloom_level][:3])})
 2. Total marks: {marks}
-3. {GROUNDING_RULE.format(target='the question', scope=' within the target module' if module else '')} Match their style and difficulty.
-4. Vary your question structure - don't use the same opening pattern every time
+3. {GROUNDING_RULE.format(target='the question', scope=' within the target module' if module else '')}
+4. Vary the opening words - don't start every question the same way
 5. The question should be direct and professional"""
 
         # Add multi-part instructions if needed
