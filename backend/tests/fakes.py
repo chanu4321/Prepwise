@@ -121,12 +121,13 @@ class FakeRag:
 
 
 @contextmanager
-def fake_db_cursor(rows):
-    """A db_cursor replacement whose fetchone/fetchall return the given rows."""
+def fake_db_cursor(rows, executed=None):
+    """A db_cursor replacement whose fetchone/fetchall return the given rows; SQL is appended to `executed`."""
 
     class _Cursor:
-        def execute(self, *args, **kwargs):
-            pass
+        def execute(self, sql, params=None):
+            if executed is not None:
+                executed.append((sql, params))
 
         def fetchone(self):
             return rows[0] if rows else None

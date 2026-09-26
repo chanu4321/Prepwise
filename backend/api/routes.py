@@ -4,6 +4,7 @@ import ntpath
 import os
 import logging
 import json
+import re
 
 from typing import List
 
@@ -14,7 +15,7 @@ from auth.users import PostgresUserStore, User
 from database import db_cursor
 from errors import ApiError
 from services.paper_store import (PAPERS_DIR, DuplicateFile, PostgresPaperStore, get_paper_store, new_upload_key,
-                                  papers_dir, resolve_paper_path)
+                                  papers_dir, resolve_paper_path, upload_status)
 from services.paper_worker import paper_worker
 from services.rag_service import RAGService
 from services.syllabus_service import get_syllabus_by_code, get_syllabus_owner, process_and_save_syllabus
@@ -153,7 +154,7 @@ def get_syllabus(subject_code: str, user: User = Depends(require_role("faculty",
 def get_documents():
     """Fetch all documents from NeonDB for the frontend."""
     with db_cursor() as cur:
-        cur.execute("SELECT id, filename, subject_code, subject_name, semester, year, time, marks FROM papers ORDER BY id DESC")
+        cur.execute("SELECT id, filename, subject_code, subject_name, semester, year, time, marks FROM papers WHERE status = 'live' ORDER BY id DESC")
         rows = cur.fetchall()
     return [
         {"id": row[0], "filename": row[1], "subjectCode": row[2], "subjectName": row[3],
@@ -165,7 +166,7 @@ def get_documents():
 def download_paper(paper_id: int):
     """Download a paper PDF by ID."""
     with db_cursor() as cur:
-        cur.execute("SELECT file_path, filename FROM papers WHERE id = %s", (paper_id,))
+        cur.execute("SELECT file_path, filename FROM papers WHERE id = %s AND status = 'live'", (paper_id,))
         row = cur.fetchone()
     if not row:
         raise ApiError(404, "not_found", "Paper not found.")
@@ -175,6 +176,17 @@ def download_paper(paper_id: int):
         logger.error("Paper %s is in the database but missing on disk at %s", paper_id, file_path)
         raise ApiError(404, "not_found", "This paper's file is missing.")
     return FileResponse(path=file_path, filename=filename, media_type="application/pdf")
+
+_UPLOAD_KEY = re.compile(r"^[0-9a-f]{32}$")
+
+
+@router.get("/documents/uploads/{upload_key}")
+def get_upload_status(upload_key: str, papers: PostgresPaperStore = Depends(get_paper_store)):
+    """An upload's progress. The key is unguessable, so this works for anonymous uploads too."""
+    paper = papers.get_by_upload_key(upload_key) if _UPLOAD_KEY.match(upload_key) else None
+    if paper is None:
+        raise ApiError(404, "not_found", "Upload not found.")
+    return upload_status(paper)
 
 @router.post("/search/semantic")
 def semantic_search(request: dict):
@@ -190,7 +202,7 @@ def semantic_search(request: dict):
     placeholders = ",".join(["%s"] * len(paper_ids))
     with db_cursor() as cur:
         cur.execute(
-            f"SELECT id, filename, subject_code, subject_name, semester, year, time, marks FROM papers WHERE id IN ({placeholders})",
+            f"SELECT id, filename, subject_code, subject_name, semester, year, time, marks FROM papers WHERE id IN ({placeholders}) AND status = 'live'",
             tuple(paper_ids),
         )
         rows = cur.fetchall()
