@@ -88,3 +88,16 @@ def test_cli_parses_keep_and_apply(monkeypatch):
     monkeypatch.setattr("services.dedupe.run_dedupe", lambda keep_ids, apply: seen.append((keep_ids, apply)) or 0)
     assert cli_main(["dedupe", "--keep", "3", "--keep", "10", "--apply"]) == 0
     assert seen == [({3, 10}, True)]
+
+
+def test_apply_leaves_papers_in_place_when_the_search_index_fails(production_like):
+    store, vectors, (rescan, ai, ai_copy, cloud_a, cloud_b), tmp_path = production_like
+    vectors.fail_payload = True
+    lines = []
+    assert run_dedupe({ai}, apply=True, store=store, vectors=vectors, out=lines.append) == 1
+    assert len(store.list_all()) == 5
+    assert (tmp_path / "ai1.pdf").exists()
+    text = "\n".join(lines)
+    assert "left in place" in text
+    assert "another paper has the same file" in text
+    assert "couldn't tag its search entry" in text
