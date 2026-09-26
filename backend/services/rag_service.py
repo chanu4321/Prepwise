@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Dict, List, Any, Optional
 import requests
 from services.vector_service import VectorService
@@ -20,6 +21,19 @@ BLOOM_VERBS = {
     "create": ["Design", "Formulate", "Develop", "Construct", "Plan", "Compose"]
 }
 
+# Papers of the requested subject score ~0.42-0.47 in vector search; other subjects score far lower (~0.09-0.22)
+MIN_RELATIVE_SCORE = 0.6
+PAGE_MARKER = re.compile(r"^--- Page \d+ ---$")
+PAGE_FOOTER = re.compile(r"^\W*P\.?\s*T\.?\s*O\.?\W*$", re.IGNORECASE)
+# Where the questions start: the first section heading or question 1
+QUESTIONS_START = re.compile(r"^\W{0,3}(section\b|q(uestion)?\.?\s*1\b|1\s*[.)])", re.IGNORECASE | re.MULTILINE)
+PAPERS_PER_PROMPT = 5
+GROUNDING_RULE = ("Model {target} on the past papers below, both in what they ask (the concepts, topics and problem types "
+                  "they examine{scope}) and in how they ask it (question forms such as definitions, differences, numericals "
+                  "or case scenarios, the phrasing, the length, how sub-parts are split, and the depth expected for the marks). "
+                  "Write a new question in that style, varying the scenario, data or angle the way the past papers themselves "
+                  "vary. Do not copy or lightly reword a past question.")
+
 class RAGService:
     def __init__(self):
         self.vector_service = VectorService()
@@ -38,7 +52,7 @@ class RAGService:
         sections = config.get("sections", [])
         
         # 1. Retrieve relevant past papers
-        similar_papers = self._retrieve_similar_papers(subject, limit=3)
+        similar_papers = self._retrieve_similar_papers(subject)
         
         if not similar_papers:
             logger.warning(f"No papers found for subject: {subject}")
@@ -64,48 +78,62 @@ class RAGService:
             "totalSections": len(generated_sections)
         }
     
-    def _retrieve_similar_papers(self, subject: str, limit: int = 3) -> List[Dict]:
+    def _retrieve_similar_papers(self, subject: str, limit: int = PAPERS_PER_PROMPT) -> List[Dict]:
         """Retrieve similar papers using vector search."""
         try:
-            # Semantic search for subject
-            results = self.vector_service.search_similar(subject, limit, with_payload=True)
-            
+            # Semantic search for subject; extra candidates make up for duplicates and other subjects dropped below
+            results = self.vector_service.search_similar(subject, limit * 2, with_payload=True)
+
             logger.info(f"Vector search returned {len(results)} results")
-            
+
             if not results:
                 logger.warning("No vector search results found")
                 return []
-            
+
+            best_score = max(point.score for point in results)
             papers = []
+            seen_filenames = set()
             for point in results:
                 payload = point.payload or {}
+                filename = payload.get("filename", "Unknown")
+                if filename in seen_filenames or point.score < best_score * MIN_RELATIVE_SCORE:
+                    continue  # duplicate upload, or a different subject
+                seen_filenames.add(filename)
                 papers.append({
                     "id": point.id,
-                    "filename": payload.get("filename", "Unknown"),
+                    "filename": filename,
                     "subjectCode": payload.get("subject_code"),
                     "subjectName": payload.get("subject_name"),
                     "ocrText": payload.get("full_text", "")
                 })
-            
+                if len(papers) == limit:
+                    break
+
             return papers
             
         except Exception as e:
             logger.error(f"Error retrieving papers: {e}", exc_info=True)
             return []
     
+    @staticmethod
+    def _questions_only(text: str) -> str:
+        """Drops page markers, "P.T.O." lines and the exam header before the first section or question."""
+        lines = [line.strip() for line in text.splitlines()]
+        body = "\n".join(line for line in lines if line and not PAGE_MARKER.match(line) and not PAGE_FOOTER.match(line))
+        start = QUESTIONS_START.search(body)
+        return body[start.start():] if start else body
+
     def _extract_paper_context(self, papers: List[Dict]) -> str:
-        """Extract question examples from retrieved papers."""
+        """The full question text of every retrieved paper, headed by its filename."""
         context_parts = []
-        
+
         for paper in papers:
             text = paper.get("ocrText", "")
             if not text:
                 logger.warning(f"No OCR text found for paper {paper.get('filename')}")
                 continue
-            
-            # Use first 2000 characters for context (reduced to prevent overwhelming small models)
-            excerpt = text[:2000]
-            context_parts.append(f"=== {paper['filename']} ===\n{excerpt}\n")
+
+            context_parts.append(f"=== {paper['filename']} ===\n{self._questions_only(text)}\n")
         
         if not context_parts:
             logger.warning("No context extracted from papers")
@@ -163,14 +191,14 @@ class RAGService:
             question_specs.append(spec)
 
         specs_text = "\n".join(question_specs)
-        context_excerpt = context[:3000]
+        grounding = GROUNDING_RULE.format(target="each question", scope=" (within its Topic when one is given)")
 
         batch_prompt = f"""You are an expert exam question generator for {subject}.
 
-Generate {len(all_configs)} examination questions based on the specifications below. Use the past paper context for style and topic guidance.
+Generate {len(all_configs)} examination questions based on the specifications below. {grounding}
 
-PAST PAPER CONTEXT:
-{context_excerpt}
+PAST PAPER QUESTIONS FOR {subject}:
+{context}
 
 QUESTION SPECIFICATIONS:
 {specs_text}
@@ -522,8 +550,8 @@ Generate a NEW examination question for {subject} that tests the "{bloom_level}"
 REQUIREMENTS:
 1. Use the action verb "{verb}" or similar ({', '.join(BLOOM_VERBS[bloom_level][:3])})
 2. Total marks: {marks}
-3. Style matches the reference questions below, but DO NOT COPY THEM exactly.
-4. Vary your question structure - don't use the same opening pattern every time
+3. {GROUNDING_RULE.format(target='the question', scope=' within the target module' if module else '')}
+4. Vary the opening words - don't start every question the same way
 5. The question should be direct and professional"""
 
         # Add multi-part instructions if needed
@@ -533,7 +561,7 @@ REQUIREMENTS:
                 prompt += f"   ({part['label']}) [Your sub-question here] - {part['marks']} marks\n"
             prompt += "\nEnsure each part is clearly labeled and addresses a distinct aspect of the topic."
         
-        prompt += """
+        prompt += f"""
 
 GUIDELINES:
 - Output ONLY the question text, no explanations or notes after it
@@ -541,10 +569,10 @@ GUIDELINES:
 - Avoid repetitive phrases like starting every question with "In the context of..."
 - Keep the question focused and clear
 
-REFERENCE CONTEXT (for style only, do not copy):
+PAST PAPER QUESTIONS FOR {subject}:
 {context}
 
-Generate the question now:""".format(context=context[:1500])
+Generate the question now:"""
     
         return prompt
     def _parse_question_parts(self, generated_text: str, parts_config: List[Dict]) -> List[Dict]:
