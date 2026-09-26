@@ -58,3 +58,14 @@ def test_request_validation_error_returns_standard_shape_with_cors_headers():
     assert response.status_code == 422
     assert response.json() == {"detail": "Some of the information sent was missing or invalid.", "code": "invalid_request"}
     assert response.headers["access-control-allow-origin"] == ORIGIN
+
+
+def test_api_error_extra_fields_are_added_to_the_body_but_cannot_replace_detail_or_code():
+    import asyncio
+
+    from errors import ApiError, api_error_handler
+
+    error = ApiError(409, "duplicate_paper", "Already here.", extra={"paperId": 3, "code": "sneaky"})
+    response = asyncio.run(api_error_handler(None, error))
+    assert response.status_code == 409
+    assert response.body == b'{"paperId":3,"code":"duplicate_paper","detail":"Already here."}'

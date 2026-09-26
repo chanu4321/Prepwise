@@ -78,19 +78,6 @@ class PaperRow:
     status: str = "live"
 
 
-def insert_paper(filename: str, file_path: str, fields: dict, uploaded_by: int | None) -> int:
-    with db_cursor() as cur:
-        cur.execute(
-            """
-            INSERT INTO papers (filename, file_path, subject_code, subject_name, semester, year, time, marks, uploaded_by)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id
-            """,
-            (filename, file_path, *(fields[k] for k in PAPER_FIELDS), uploaded_by),
-        )
-        return cur.fetchone()[0]
-
-
 def get_papers(ids: list[int] | None) -> list[PaperRow]:
     """All papers (ids=None) or the given ids, ordered by id."""
     query = "SELECT id, filename, file_path, subject_code, subject_name, semester, year, time, marks, status FROM papers"

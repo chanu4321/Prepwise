@@ -10,19 +10,22 @@ GENERIC_ERROR_MESSAGE = "Something went wrong. Please try again."
 
 
 class ApiError(Exception):
-    """An error the client is allowed to see: returned as {"detail": ..., "code": ...}."""
+    """An error the client is allowed to see: returned as {"detail": ..., "code": ..., **extra}."""
 
-    def __init__(self, status_code: int, code: str, detail: str, headers: dict[str, str] | None = None):
+    def __init__(self, status_code: int, code: str, detail: str, headers: dict[str, str] | None = None,
+                 extra: dict | None = None):
         super().__init__(detail)
         self.status_code = status_code
         self.code = code
         self.detail = detail
         self.headers = headers
+        self.extra = extra or {}
 
 
 async def api_error_handler(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, ApiError)
-    return JSONResponse({"detail": exc.detail, "code": exc.code}, status_code=exc.status_code, headers=exc.headers)
+    return JSONResponse({**exc.extra, "code": exc.code, "detail": exc.detail}, status_code=exc.status_code,
+                        headers=exc.headers)
 
 
 async def request_validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:

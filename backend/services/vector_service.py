@@ -77,13 +77,6 @@ class VectorService:
         """Generates embedding vector using API."""
         return embed_text(text, input_type)
 
-    def upsert_paper(self, paper_id: int, text: str, metadata: dict):
-        """Embeds and stores a live paper. (Removed once uploads go through the background worker.)"""
-        vector = self.get_embedding(text)
-        if not vector:
-            return False
-        return self.upsert_paper_vector(paper_id, vector, text, metadata, "live")
-
     def upsert_paper_vector(self, paper_id: int, vector: list, text: str, metadata: dict, status: str) -> bool:
         """Stores a precomputed vector with the paper's metadata, full text and moderation status."""
         try:

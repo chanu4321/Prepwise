@@ -156,14 +156,6 @@ class FakeProcessor:
         return self.full_text
 
 
-class FakeVectorService:
-    upserts: list = []
-
-    def upsert_paper(self, paper_id, text, metadata):
-        FakeVectorService.upserts.append((paper_id, text, metadata))
-        return True
-
-
 import secrets
 from datetime import timedelta
 
