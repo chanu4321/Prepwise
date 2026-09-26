@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from services import paper_store
 from services.paper_store import PAPERS_DIR, resolve_paper_path
 
@@ -21,8 +19,9 @@ def test_absolute_paths_are_kept(tmp_path):
     assert resolve_paper_path(str(pdf)) == str(pdf)
 
 
-def test_upload_folder_is_the_absolute_papers_folder():
-    from api import routes
-
-    assert Path(routes.processor.upload_dir).is_absolute()
-    assert routes.processor.upload_dir == resolve_paper_path(PAPERS_DIR)
+def test_upload_folder_is_the_absolute_papers_folder(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    folder = paper_store.papers_dir()
+    assert folder.is_absolute()
+    assert str(folder) == resolve_paper_path(PAPERS_DIR)
+    assert not (tmp_path / "backend").exists()
