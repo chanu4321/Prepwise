@@ -41,7 +41,7 @@ install_error_handling(app)
 # CORS (Allow Frontend)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "https://prepwise-opal-three.vercel.app"],
+    allow_origins=["http://localhost:3000", "https://prepwise-opal-three.vercel.app", "https://prepwise.chanu.space"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
