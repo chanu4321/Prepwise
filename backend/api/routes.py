@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
+from concurrent import futures
 import ntpath
 import os
 import logging
@@ -218,6 +219,23 @@ def semantic_search(request: dict):
 def _sse(payload: dict) -> str:
     return f"data: {json.dumps(payload)}\n\n"
 
+# Cloudflare closes a proxied response that sends nothing for 100 s, and one LLM question can take
+# minutes, so the stream sends an SSE comment (ignored by the client) while a question is generating
+HEARTBEAT_SECONDS = 15
+_SSE_PING = ": ping\n\n"
+
+
+def _with_heartbeats(fn, *args):
+    """Runs fn(*args) in a helper thread, yielding a ping every HEARTBEAT_SECONDS until it finishes.
+    Use as `result = yield from _with_heartbeats(...)`; fn's exception is raised in the caller."""
+    with futures.ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(fn, *args)
+        while True:
+            try:
+                return future.result(timeout=HEARTBEAT_SECONDS)
+            except futures.TimeoutError:
+                yield _SSE_PING
+
 def _has_usable_question(sections: list) -> bool:
     """True if any question (in a section's `questions` or `pool` list) isn't a flagged fallback."""
     for section in sections:
@@ -259,7 +277,8 @@ def generate_mock_paper_stream(
 ):
     """
     SSE streaming endpoint: generates one question at a time and streams each
-    back as a Server-Sent Event so Cloudflare/nginx timeouts are never hit.
+    back as a Server-Sent Event, with keep-alive pings while a question is generating, so
+    Cloudflare/nginx idle timeouts are never hit.
 
     Plain `def` on purpose: the quota check, the vector search and the minutes-long LLM calls are
     blocking, so they run in worker threads (Starlette iterates a sync generator in a threadpool)
@@ -317,14 +336,14 @@ def generate_mock_paper_stream(
 
                 # Stream each question as it's generated
                 for q_config in questions_config:
-                    q = rag_service._generate_question(q_config, context, subject, bloom_dist)
+                    q = yield from _with_heartbeats(rag_service._generate_question, q_config, context, subject, bloom_dist)
                     if not q.get("error"):
                         real_questions += 1
                     generated_questions.append(q)
                     yield _sse({"type": "question", "section": section_name, "is_pool": False, "question": q})
 
                 for q_config in pool_configs:
-                    q = rag_service._generate_question(q_config, context, subject, bloom_dist)
+                    q = yield from _with_heartbeats(rag_service._generate_question, q_config, context, subject, bloom_dist)
                     if not q.get("error"):
                         real_questions += 1
                     pool_questions.append(q)
