@@ -1,4 +1,5 @@
 import json
+import time
 
 import pytest
 
@@ -108,3 +109,25 @@ def test_missing_fields_are_400_without_using_quota(client, auth_headers, store)
     response = client.post(STREAM, json={"subject": "x"}, headers=auth_headers(role="faculty"))
     assert response.status_code == 400 and response.json()["code"] == "invalid_request"
     assert sum(store.usage.values()) == 0
+
+
+def test_stream_keeps_the_connection_alive_while_a_question_is_slow(client, auth_headers, fake_rag, monkeypatch):
+    # Cloudflare closes a stream after 100 s without data, and one LLM question can take minutes
+    monkeypatch.setattr("api.routes.HEARTBEAT_SECONDS", 0.05)
+    generate = fake_rag._generate_question
+
+    def slow_question(self, *args):
+        time.sleep(0.3)
+        return generate(self, *args)
+
+    monkeypatch.setattr(fake_rag, "_generate_question", slow_question)
+    response = client.post(STREAM, json=BODY, headers=auth_headers(role="faculty"))
+    chunks = [chunk for chunk in response.text.split("\n\n") if chunk]
+    first_question = next(i for i, chunk in enumerate(chunks) if '"type": "question"' in chunk)
+    assert first_question > 1 and all(chunk == ": ping" for chunk in chunks[1:first_question])
+    assert [e["type"] for e in events(response)] == ["meta", "question", "done"]
+
+
+def test_fast_questions_send_no_pings(client, auth_headers):
+    response = client.post(STREAM, json=BODY, headers=auth_headers(role="faculty"))
+    assert ": ping" not in response.text
