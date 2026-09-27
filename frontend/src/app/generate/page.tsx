@@ -229,14 +229,17 @@ export default function GeneratePage() {
             const reader = response.body?.getReader();
             const decoder = new TextDecoder();
             let currentPaperState: any = null;
+            // A network chunk can end mid-event, so keep the incomplete tail until the next one
+            let pending = '';
 
             if (reader) {
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
 
-                    const chunk = decoder.decode(value, { stream: true });
-                    const events = chunk.split('\n\n');
+                    pending += decoder.decode(value, { stream: true });
+                    const events = pending.split('\n\n');
+                    pending = events.pop() ?? '';
 
                     for (const event of events) {
                         if (event.startsWith('data: ')) {
