@@ -143,7 +143,7 @@ class DocumentProcessor:
         )
         
         data = {
-            "model": os.getenv("LLM_MODEL") or "z-ai/glm-5.3-flash",
+            "model": os.getenv("LLM_MODEL") or "nvidia/nemotron-3-ultra-550b-a55b",
             "messages": [
                 {"role": "user", "content": prompt}
             ],
