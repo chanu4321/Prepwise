@@ -40,7 +40,7 @@ def _parse_syllabus_with_llm(text: str) -> Optional[list]:
     }
     
     payload = {
-        "model": os.getenv("LLM_MODEL") or "z-ai/glm-5.3-flash",
+        "model": os.getenv("LLM_MODEL") or "nvidia/nemotron-3-ultra-550b-a55b",
         "messages": [
             {"role": "user", "content": f"{system_prompt}\n\nTask: Extract the module breakdown from this syllabus text:\n\n{text}"}
         ],

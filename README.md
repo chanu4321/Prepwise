@@ -81,7 +81,7 @@ flowchart TD
 | **Database (Relational)** | NeonDB (PostgreSQL) | Serverless PostgreSQL database for structured data |
 | **Database (Vector)** | Qdrant Cloud | Vector database for similarity search and RAG context |
 | **OCR Pipeline** | NVIDIA `nemotron-ocr-v2`, Tesseract fallback & `pdf2image` | Optical Character Recognition for document digitizing |
-| **LLM Inference** | NVIDIA NIM API | Hosting `z-ai/glm-5.3-flash` & `nvidia/nemotron-3-embed-1b` |
+| **LLM Inference** | NVIDIA NIM API | Hosting `nvidia/nemotron-3-ultra-550b-a55b` & `nvidia/nemotron-3-embed-1b` |
 
 ---
 
@@ -154,7 +154,7 @@ DATABASE_URL=postgresql://<user>:<password>@<host>/<database>?sslmode=require
 # NVIDIA LLM & Embedding Endpoints
 NVIDIA_API_KEY=nvapi-...
 LLM_API_URL=https://integrate.api.nvidia.com/v1/chat/completions
-LLM_MODEL=z-ai/glm-5.3-flash
+LLM_MODEL=nvidia/nemotron-3-ultra-550b-a55b
 
 # NVIDIA Embeddings API
 NVIDIA_EMBED_API_KEY=nvapi-...

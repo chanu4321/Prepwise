@@ -222,7 +222,7 @@ OUTPUT FORMAT:
                 "Content-Type": "application/json"
             }
             payload = {
-                "model": os.getenv("LLM_MODEL") or "z-ai/glm-5.3-flash",
+                "model": os.getenv("LLM_MODEL") or "nvidia/nemotron-3-ultra-550b-a55b",
                 "messages": [{"role": "user", "content": batch_prompt}],
                 "temperature": 0.6,
                 "top_p": 0.7,
@@ -342,7 +342,7 @@ OUTPUT FORMAT:
             system_instruction = f"You are an expert exam question generator for {subject}. Generate a single examination question based on the user's requirements."
             
             chat_payload = {
-                "model": os.getenv("LLM_MODEL") or "z-ai/glm-5.3-flash",
+                "model": os.getenv("LLM_MODEL") or "nvidia/nemotron-3-ultra-550b-a55b",
                 "messages": [
                     {"role": "user", "content": f"{system_instruction}\n\nTask: {prompt}"}
                 ],
