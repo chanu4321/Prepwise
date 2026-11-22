@@ -1,0 +1,25 @@
+CSE439  2   2101
+4. The EUCALYPTUS (Elastic Utility Computing
+Architecture for Linking Your Programs) used in cloud
+computing? derived the architecture and explain the
+details.
+
+5. Consider a case of Windows hypervisor to create an
+isolated virtual environment that becomes the root of
+trust of the Operation System. Explain how the kernel
+can be compromised.
+
+    SECTION - B     (20 Marks)
+    Attempt any two questions out of three.
+    Each question carries 10 marks.
+
+6. Convert "MEET ME" using Hill cipher with the key 
+matrix Convert the cipher text back to plaintext.
+
+7. Discuss the supported and unsupported operating
+systems on VMWare GSX, VMWare ESX, and
+Microsoft virtual Servers.
+
+8. Differentiate the clone and template in virtualization
+also with a suitable example explain the functionality
+of the Hypervisor.

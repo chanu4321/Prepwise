@@ -1,0 +1,11 @@
+CSE439  3   2101
+    SECTION - C     (16 Marks)
+    (Compulsory)
+
+9. (a) Carefully observe the following figure of the x
+VM Hypervisor of Sun's machine. Explain each 
+layer's role and component including the hypervisor
+layer's functional details.
+
+        (10)
+        P.T.O.

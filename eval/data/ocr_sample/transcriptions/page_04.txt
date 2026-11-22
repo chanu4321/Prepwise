@@ -1,0 +1,25 @@
+[No. of Printed Pages - 3]      1552
+
+CSE439      Enrol. No. .........
+[ET]
+
+    END SEMESTER EXAMINATION : APRIL-MAY, 2024
+    CLOUD SECURITY
+Time : 3 Hrs.       Maximum Marks : 60
+
+Note: Attempt questions from all sections as directed.
+
+    Section - A     (24 Marks)
+    Attempt any four questions out of five.
+    Each question carries 06 marks.
+
+1. What is the shared responsibility model in
+cloud security, and how does it affect security
+practices?
+
+2. What are sandboxing? What are the benefits of
+sandboxing?
+
+3. Explain stream cipher and block cipher using suitable
+example.
+        P.T.O.

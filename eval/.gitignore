@@ -1,0 +1,12 @@
+# Run logs (API calls, model replies, per-run results): kept by the author, not published
+runs/
+# Exam PDFs copied from the server, and the throwaway local Qdrant index built from them
+data/papers/
+data/qdrant_local/
+data/tmp_uploads/
+data/ocr_cache/
+data/papers_text_for_labelling.md
+data/syllabus_topics_from_prepwise.md
+# OCR sample page images (~2 MB each): regenerated from the PDFs by step2_prepare_ocr.py
+data/ocr_sample/*.png
+__pycache__/

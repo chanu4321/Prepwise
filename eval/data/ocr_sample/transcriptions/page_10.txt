@@ -1,0 +1,29 @@
+CSE432      4       1242
+8. (a) Discuss the different types of quality factors
+    related to the Software quality criteria.       (6)
+
+    (b) How CMM improve the quality of a product?
+    Explain.                                        (4)
+
+        SECTION - C     (16 Marks)
+        (Compulsory)
+
+9. (a) Based on given cash flow for two projects,
+Determine (i) Net Profit, (ii) RoI, (iii) Payback
+Period, (iv) NPV at 10% discount rate for each
+project. (v) Which project you will select for
+development based on RoI and why?
+
+Year    Project 1   Project 2
+0       -1,00,000   -1,000,000
+1       10,000      2,00,000
+2       10,000      2,00,000
+3       10,000      2,00,000
+4       20,000      2,00,000
+5       1,00,000    3,00,000
+                            (10)
+
+(b) Explain the role and responsibilities of software
+project manager.                    (6)
+
+                                    (1300)

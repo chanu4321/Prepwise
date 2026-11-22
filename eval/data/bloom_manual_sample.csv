@@ -1,0 +1,158 @@
+sample_id,subject,question,human_level,notes
+s01,Data Mining and Business Intelligence,"Demonstrate the calculation of Support, Confidence, and Lift for the association rule {Milk, Bread} → {Butter} using the transaction database below. The minimum support threshold is 25% and the minimum confidence threshold is 50%. State whether the rule is strong and interpret the Lift value.
+
+| TID | Items Purchased |
+| :--- | :--- |
+| T1 | Milk, Bread, Butter, Eggs |
+| T2 | Milk, Bread, Butter |
+| T3 | Milk, Bread, Eggs |
+| T4 | Bread, Butter, Eggs |
+| T5 | Milk, Eggs |
+| T6 | Bread, Eggs |
+| T7 | Milk, Bread, Butter, Cheese |
+| T8 | Milk, Butter, Cheese |",apply,could be analyze as well
+s02,Data Mining and Business Intelligence,"A retail chain has applied K-Means clustering (K=3) on customer transaction data using two different attribute subsets: Set A (Annual Income, Total Spend) and Set B (Visit Frequency, Average Basket Size, Product Category Diversity). The resulting cluster assignments for 500 customers show a Rand Index of 0.62 between the two partitions.
+
+(a) Analyze what this Rand Index value indicates about the structural stability of the customer segments across the two attribute spaces.  
+(b) The silhouette coefficients for Set A average 0.48 while Set B averages 0.31. Examine the implications of these internal validation metrics for the quality and interpretability of the respective segmentations.  
+(c) Propose and justify a systematic analytical approach to determine which attribute subset yields segments that are more actionable for targeted marketing campaigns, considering both statistical validity and business utility.",create,could be evaluate or analyze
+s03,Cloud Security,"Explain the differences between identity-based policies and resource-based policies in AWS Identity and Access Management (IAM). (5)
+
+Describe the sequence of the policy evaluation logic used to determine whether a specific API request is allowed or denied when both policy types are applicable to the request. (5)",understand,
+s04,Introduction to AI and Machine Learning,"Define the following types of intelligent agents:
+(a) Simple Reflex Agent
+(b) Goal-Based Agent
+(2 marks each)",remember,
+s05,Cloud Security,"(a) Define the term ""Bring Your Own Key"" (BYOK) in the context of cloud encryption key management. - 3 marks
+
+(b) State the fundamental operational difference between BYOK and ""Hold Your Own Key"" (HYOK) regarding the physical location and control of the master key material. - 3 marks",remember,could be understand
+s06,Software Project Management,"A software project has a Budget at Completion (BAC) of ₹8,00,000 and a planned duration of 10 months. At the end of Month 6, the planned progress is 60%, the actual progress achieved is 50%, and the Actual Cost (AC) incurred is ₹5,20,000. Demonstrate the calculation of Planned Value (PV), Earned Value (EV), Cost Variance (CV), and Schedule Variance (SV). (4)",apply,
+s07,Artificial Intelligence,Explain the significance of an admissible heuristic function in the A* search algorithm. Illustrate with a concise example how an inadmissible heuristic can cause A* to return a suboptimal path.,apply,first part is understand
+s08,Software Project Management,"Explain the key phases involved in the Software Risk Management process. (5)
+
+Describe the four primary strategies for responding to negative risks (threats), providing a relevant software project example for each strategy. (5)",understand,
+s09,Data Mining and Business Intelligence,"A retail chain has collected the following transaction data from its weekend sales. The management wants to apply market basket analysis to identify product affinities for shelf placement optimization.
+
+**Transaction Database:**
+| TID | Items Purchased |
+|-----|-----------------|
+| T1  | Bread, Milk, Butter, Eggs |
+| T2  | Bread, Milk, Cheese |
+| T3  | Milk, Butter, Eggs, Yogurt |
+| T4  | Bread, Butter, Cheese |
+| T5  | Milk, Eggs, Yogurt |
+| T6  | Bread, Milk, Butter, Cheese |
+| T7  | Bread, Eggs, Yogurt |
+| T8  | Milk, Butter, Cheese, Yogurt |
+
+**(a)** Demonstrate the Apriori algorithm to find all frequent itemsets using a minimum support threshold of 25%. Show the candidate generation and pruning steps for each level (L₁, L₂, L₃, ...). (6)
+
+**(b)** From the frequent itemsets obtained in part (a), generate all strong association rules that satisfy a minimum confidence of 70%. For each strong rule, compute and report its confidence and lift values. Interpret the meaning of a lift value greater than 1 for the rule {Milk, Butter} → {Bread}. (4)",apply,
+s10,Cloud Security,"Define the term ""Hypervisor"" in the context of cloud virtualization. List the two primary types of hypervisors (Type 1 and Type 2) and state the fundamental architectural difference between them. (4 Marks)",remember,
+s11,Artificial Intelligence,"Explain the fundamental differences between Semantic Networks and Frame-based systems as knowledge representation formalisms. Illustrate these differences by describing how the concept of a ""University"" — comprising Departments, Faculty, Students, Courses, and relationships such as ""offers"", ""teaches"", and ""enrolled_in"" — would be structured in each formalism. Discuss one specific advantage of Frame-based systems over Semantic Networks when dealing with default values and inheritance exceptions.",apply,
+s12,Artificial Intelligence,"Analyze the behavior of A* Search, Greedy Best-First Search, and Iterative Deepening A* (IDA*) for a robot path-planning problem in a large, partially observable grid environment where the heuristic function is admissible but not consistent.
+
+(a) Differentiate the node expansion order and optimality guarantees of A* Graph Search versus Greedy Best-First Search under these specific heuristic conditions. (4)
+
+(b) Examine the consequences of heuristic inconsistency on the optimality and efficiency of A* Graph Search compared to A* Tree Search. (3)
+
+(c) Evaluate the trade-offs in time and space complexity when selecting IDA* over standard A* for this scenario, assuming severe memory limitations. (3)",evaluate,
+s13,Software Project Management,"(a) A software development project has a Budget at Completion (BAC) of ₹8,00,000 and a planned duration of 8 months. At the end of Month 3, the project plan indicates that 40% of the work should be complete. The project team has actually completed 30% of the work, and the Actual Cost (AC) incurred to date is ₹3,50,000. Demonstrate the calculation of Planned Value (PV), Earned Value (EV), Schedule Variance (SV), Cost Variance (CV), Schedule Performance Index (SPI), and Cost Performance Index (CPI). Interpret the current project status based on these indices. (3)
+
+(b) During the development of a cloud-based payment gateway, a key risk is identified: ""The third-party API provider may deprecate the current authentication protocol version within the next sprint cycle, requiring immediate migration to OAuth 2.1."" Demonstrate the selection of the most appropriate risk response strategy (Avoid, Mitigate, Transfer, or Accept) for this specific threat. Justify your choice by outlining two concrete action items the project team should execute immediately to implement this strategy. (3)",evaluate, first part is apply
+s14,Software Project Management,"Apply PERT analysis to the project data given below to evaluate the schedule risk.
+
+| Activity | Predecessor | Optimistic (weeks) | Most Likely (weeks) | Pessimistic (weeks) |
+| :--- | :--- | :--- | :--- | :--- |
+| A | — | 2 | 5 | 8 |
+| B | A | 3 | 6 | 9 |
+| C | A | 4 | 7 | 10 |
+| D | B | 2 | 4 | 6 |
+| E | C | 3 | 5 | 7 |
+| F | D, E | 1 | 3 | 5 |
+
+(a) Calculate the expected duration (te) and variance (σ²) for each activity. (3)
+(b) Construct the project network, identify the critical path, and determine the expected project completion time. (3)
+(c) Determine the probability that the project will be completed within 24 weeks. (4)",apply,
+s15,Data Mining and Business Intelligence,"Explain the key differences between ROLAP, MOLAP, and HOLAP architectures in the context of OLAP server implementation.",understand,
+s16,Data Mining and Business Intelligence,"A retail chain has collected the following transaction data for market basket analysis. Let minimum support = 40% and minimum confidence = 70%.
+
+| TID | Items Purchased |
+|-----|-----------------|
+| T1  | Bread, Milk, Butter |
+| T2  | Bread, Diapers, Beer, Eggs |
+| T3  | Milk, Diapers, Beer, Butter |
+| T4  | Bread, Milk, Diapers, Beer |
+| T5  | Bread, Milk, Diapers, Butter |
+
+(a) Demonstrate the first two iterations of the Apriori algorithm to generate all frequent 1-itemsets and 2-itemsets. Show the candidate generation, support counting, and pruning steps clearly. (3 marks)
+
+(b) Using the frequent itemsets obtained, demonstrate the generation of all strong association rules that satisfy the minimum confidence threshold. List each rule with its confidence value. (3 marks)",apply,
+s17,Software Project Management,"Explain the key steps involved in the Software Risk Management process. (5)
+
+Describe four risk response strategies—Avoidance, Mitigation, Transfer, and Acceptance—providing a distinct software project scenario for each strategy where it would be the most appropriate choice. (5)",understand,
+s18,Data Mining and Business Intelligence,"(a) Explain the purpose of concept hierarchy generation in data preprocessing and describe how it supports OLAP operations in a data warehouse. - 3 marks
+
+(b) Explain the key differences between ROLAP, MOLAP, and HOLAP architectures in terms of data storage, query performance, and scalability. - 3 marks",understand,
+s19,Data Mining and Business Intelligence,"(a) Explain the purpose of data normalization in data mining and describe the key differences between min-max normalization and z-score normalization. (3 marks)
+
+(b) Explain the concept of a concept hierarchy in data mining and describe two different types of concept hierarchies with relevant examples. (3 marks)",understand,
+s20,Introduction to AI and Machine Learning,"Define the following components of the PEAS description for an intelligent agent:  
+(i) Performance measure  
+(ii) Environment  
+(iii) Actuators  
+(iv) Sensors  
+(4)",remember,
+s21,Cloud Security,"A financial services organization is migrating its core banking application to a VPC in AWS. The architecture consists of public-facing web servers, internal application servers, and a database tier containing sensitive customer data. The security team must implement network segmentation and traffic filtering aligned with Zero Trust principles.
+
+(a) Demonstrate how to configure Security Groups and Network ACLs to enforce least-privilege access between the three tiers, specifying explicit inbound and outbound rules for each tier. Include rule priority, protocol, port range, and source/destination CIDR notation. (6)
+
+(b) Demonstrate how to implement a verification mechanism that ensures no Security Group rule permits unrestricted inbound access (0.0.0.0/0) on management ports (22, 3389) across the VPC, using AWS Config or equivalent native tooling. (4)",apply,
+s22,Cloud Security,"Describe how the division of security responsibilities shifts between the cloud provider and the customer across IaaS, PaaS, and SaaS service models.",understand,
+s23,Cloud Security,"A financial services organization is migrating its customer transaction processing system to a public cloud environment. The system handles sensitive PCI DSS data and requires strict network segmentation between the web tier, application tier, and database tier.
+
+(a) Demonstrate how you would configure AWS Security Groups and Network ACLs to enforce a zero-trust network segmentation strategy for this three-tier architecture, specifying explicit rules for each tier. (3 marks)
+
+(b) Demonstrate the process of validating that the implemented network controls effectively prevent lateral movement between tiers, including the specific cloud-native logging and monitoring services you would enable and the key log events you would analyze. (3 marks)",apply,
+s24,Artificial Intelligence,"State the formal definitions for the following Artificial Intelligence concepts:
+
+(a) Admissible heuristic in the context of informed search strategies.  
+(b) Horn clause in propositional logic.  
+(c) Frame problem in knowledge representation.  
+(d) Overfitting in supervised machine learning.",remember,
+s25,Cloud Security,"Explain the Shared Responsibility Model as it applies to Managed Kubernetes Services (e.g., Amazon EKS, Azure AKS, Google GKE).  
+(a) Describe the security responsibilities retained by the Cloud Service Provider versus those assigned to the customer for the Control Plane and Data Plane components. (5 marks)  
+(b) Explain how a failure to implement proper Kubernetes Network Policies and RBAC configurations by the customer can lead to lateral movement within a cluster. (5 marks)",understand,
+s26,Artificial Intelligence,"Demonstrate the classification of the test instance (5, 4) using the k-Nearest Neighbors (k-NN) algorithm with k=3 on the training dataset provided below. Use Euclidean distance. Show all distance calculations, identify the k nearest neighbors, and state the final predicted class. (4)
+
+| Feature X | Feature Y | Class |
+| :--- | :--- | :--- |
+| 2 | 4 | 0 |
+| 4 | 6 | 0 |
+| 5 | 5 | 1 |
+| 7 | 3 | 1 |
+| 8 | 7 | 0 |",apply,
+s27,Data Mining and Business Intelligence,Explain the need for data normalization during data preprocessing. Distinguish between Min-Max Normalization and Z-Score Normalization based on their transformation logic and behavior when the input data contains significant outliers.,understand,could be analyze
+s28,Artificial Intelligence,"Design a hybrid intelligent agent architecture for an autonomous agricultural robot that must navigate crop rows, detect and classify plant diseases using onboard sensors, and decide on targeted treatment actions. The robot operates in partially observable environments with seasonal lighting variations and limited computational resources.
+
+(a) Specify the agent's PEAS description (Performance, Environment, Actuators, Sensors) and justify the choice of a hybrid architecture (combining reactive and deliberative layers) over purely reactive or purely deliberative alternatives for this domain. (3)
+
+(b) Design the knowledge representation scheme for the deliberative layer using a frame-based system. Define at least three frame types (e.g., CropRow, DiseaseProfile, TreatmentAction) with appropriate slots, default values, and inheritance relationships. Show how the frame for ""TomatoLateBlight"" would inherit from a generic ""FungalDisease"" frame and specify its unique slot fillers. (4)
+
+(c) Formulate the decision-making process for the deliberative layer as a utility-based selection among competing treatment actions. Define a utility function U(action, context) that incorporates treatment efficacy, chemical cost, environmental impact, and time-to-harvest constraints. Explain how the agent would handle conflicting utility scores when sensor noise creates uncertainty in disease classification. (3)",create,
+s29,Cloud Security,"(a) Analyze the differences between network segmentation using Security Groups versus Network ACLs in a VPC environment, focusing on their stateful versus stateless inspection behaviors and the implications for implementing least-privilege access controls. (3 marks)
+
+(b) Examine how a misconfigured IAM role trust policy combined with an overly permissive S3 bucket policy could create an escalation path for a compromised EC2 instance to exfiltrate data from a separate AWS account, identifying the specific policy evaluation logic failures at each step. (3 marks)",analyze,
+s30,Software Project Management,"A software project team is developing a 'Customer Relationship Management (CRM) Analytics Module'. The project manager has gathered the following three-time estimates (in days) for the critical activities:
+
+| Activity | Predecessor | Optimistic (to) | Most Likely (tm) | Pessimistic (tp) |
+| :--- | :--- | :--- | :--- | :--- |
+| A | - | 4 | 6 | 8 |
+| B | A | 3 | 5 | 13 |
+| C | A | 2 | 4 | 6 |
+| D | B | 5 | 8 | 11 |
+| E | C, D | 2 | 3 | 4 |
+
+(a) Demonstrate the calculation of the Expected Time (te) and Variance (σ²) for each activity. Determine the Critical Path and the Expected Project Duration. (3 marks)
+
+(b) If the project manager commits to a delivery deadline of 28 days, demonstrate how to calculate the probability of completing the project on time. (Use Z-table value: Z=0.67 → 0.7486; Z=0.68 → 0.7517). (3 marks)",apply,

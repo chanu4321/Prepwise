@@ -1,0 +1,28 @@
+[No. of Printed Pages - 5]          SE60
+
+CSE432          Enrol. No. .........
+[ET]
+
+    SUPPLEMENTARY EXAMINATION : JUNE, 2023
+
+    SOFTWARE PROJECT MANAGEMENT
+
+Time : 3 Hrs.           Maximum Marks : 60
+
+Note: Attempt questions from all sections as directed.
+Use  of Calculator is allowed.
+
+    SECTION-A   (24 Marks)
+    Attempt any four questions out of five.
+    Each question carries 06 marks.
+
+1. Discuss leadership and the desired characteristics for
+a good leader in the organization.
+
+2. A company manager wants to determine whether the
+project should be executive or not based on NPV
+model. The upfront cost of the project maybe 1 lakh
+and the use the discounting rate of 6% to calculate
+the NPV of the project. Determine whether the project
+
+                                                P.T.O.

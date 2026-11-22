@@ -1,0 +1,10 @@
+Bloom's taxonomy levels (revised, Anderson & Krathwohl 2001):
+- remember: retrieve facts or definitions from memory (define, list, state, name, recall).
+- understand: construct meaning; explain, describe, summarise, classify, give examples, compare in simple terms.
+- apply: carry out or use a procedure, method or concept in a given situation; solve, compute, implement, use.
+- analyze: break material into parts and work out how the parts relate; differentiate, examine, investigate causes.
+- evaluate: make and defend a judgement against criteria; justify, critique, assess, argue for or against.
+- create: put elements together into a new, coherent whole; design, plan, formulate, construct something original.
+
+Rules: rate what the question actually requires a student to do, not just the verb it opens with. For a question
+with several parts, give the highest level that any part genuinely requires.

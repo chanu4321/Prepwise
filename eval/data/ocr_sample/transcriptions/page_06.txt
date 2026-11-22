@@ -1,0 +1,31 @@
+[No. of Printed Pages - 6]
+
+AIML201         Enrol. No. .........
+[ET]
+
+END SEMESTER EXAMINATION : APRIL-MAY 2022
+
+    INTRODUCTION TO AI AND
+    MACHINE LEARNING
+
+Time : 3 Hrs.          Maximum Marks : 60
+
+Note: Attempt questions from all sections as directed.
+Use of Scientific Calculator is allowed.
+
+    SECTION-A   (24 Marks)
+    Attempt any four questions out of five.
+    Each question carries 06 marks.
+
+1. (a) Solve the following cryparithmatic problem:
+    DONALD + GERALD = ROBERT    (3)
+
+(b) Consider the following sentences
+    (i) John likes all kinds of food
+    (ii) Apples are food
+    (iii) Chicken is food
+    (iv) Anything anyone eats and isn't killed by is
+    food
+
+            P.T.O.
+    (643)

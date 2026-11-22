@@ -1,0 +1,12 @@
+id,subject_code,subject_name,semester,year,status,pages,filename
+"1","CSE432","Software Project Management","","June, 2023","live","5","SPM 23.pdf"
+"2","CSE401","Artificial Intelligence","","April-May, 2023","live","4","AI Major 2023(1).PDF"
+"5","CSE439","Cloud Security","","April-May, 2023","live","1","Cloud Sec Major 2023 (2).pdf"
+"6","CSE439","Cloud Security","","April-May, 2024","live","3","Cloud Sec Major 2024.pdf"
+"7","CSE439","Cloud Security","","April-May, 2023","live","4","Cloud Sec Major 2023 (1).pdf"
+"8","","Software Project Management","","September, 2022","live","1","SPM Minor 2022.pdf"
+"9","CSE432","Software Project Management","","November-December, 2025","live","4","SPM Major 2025.pdf"
+"10","AIML201","Introduction to AI and Machine Learning","","April-May 2022","live","6","Intro to AIML Major 2022.pdf"
+"12","IT402","Data Mining & Business Intelligence","","September, 2025","live","1","DMBI Minor 2025 Set B.pdf"
+"13","IT402","Data Mining and Business Intelligence","","Nov-Dec, 2022","live","4","DMBI Major 2022 Nov.pdf"
+"14","IT402","Data Mining and Business Intelligence","","November-December, 2025","live","4","DMBI Major 2025 Nov.pdf"

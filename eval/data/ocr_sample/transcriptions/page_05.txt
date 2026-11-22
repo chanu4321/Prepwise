@@ -1,0 +1,23 @@
+CSE439  2   1552
+4. How do privacy regulations, such as GDPR or CCPA,
+impact the storage and processing of personal data in
+the cloud?
+
+5. (a) How do software vulnerabilities in the ESXi
+hypervisor affect the security of virtualized
+environments?       (3)
+
+(b) How do vulnerabilities in third-party libraries and
+dependencies impact the security of software applications?      (3)
+
+    SECTION - B     (20 Marks)
+    Attempt any two questions out of three.
+    Each question carries 10 marks.
+
+6. What are the challenges and best practices for
+ensuring compliance with industry-specific
+regulations (e.g., HIPAA, PCI DSS) in the cloud
+environment?
+
+7. Explain X.509 PK infrastructure. List application of
+X.509 Certificate.

@@ -1,0 +1,7 @@
+{
+  "nvidia/nemotron-3-ultra-550b-a55b": {
+    "input_per_million": 0.50,
+    "output_per_million": 2.20,
+    "source": "Deep Infra list price for Nemotron 3 Ultra, as listed on computeprices.com / Eden AI (Sep 2026); assumed rate, not billed (Prepwise used NVIDIA's free tier)"
+  }
+}

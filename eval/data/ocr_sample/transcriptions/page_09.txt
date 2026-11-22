@@ -1,0 +1,23 @@
+CSE432      5       SE60
+(b) You are the project manager on a project that has
+$800,000 software development effort. There are
+two teams of programmers that will work for six
+months for a total of 10,000 hours. According to
+the project schedule your team should be done
+with 38% of the work. As of today, the project is
+40% complete while 50% budget has been used.
+Calculate and share your conclusion.        (6)
+
+(c) Discuss how meaningful the following
+measurements are :                          (4)
+
+    (i) The number of error messages produced at
+    the first compilation of program.
+
+    (ii) The average effort to implement changes
+    requested by client to system.
+
+    (iii) The percentage of lines in program listings
+    that are comments.
+
+                                            (100)

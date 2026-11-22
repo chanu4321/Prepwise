@@ -1,0 +1,43 @@
+CSE439
+[ET]            Enroll. No. - 
+    END SEMESTER EXAMINATION : April-May, 2023
+    Cloud Security
+
+Time :3.00 Hrs           Maximum Marks :60
+
+Note: Attempt questions from all sections as directed.
+Section - A : Attempt any Four questions out of Five . Each question carries 06 marks.      [24 Marks]
+
+Q1. If the public key can't be used for decrypting something encrypted by the private key, then how do
+digital signatures work?
+Q2. Explain different kinds of security concern in case of PaaS and IaaS.
+Q3. Justify, how Multitenancy is the best properties of Cloud Computing.
+Q4. Explain Zero-Trust-Security Model and also discuss about how does a zero trust architecture work?
+Q5. Justify the role of domestic law principles that should form the basis of any regulation.
+
+Section - B : Attempt any two questions out of three. Each question carries 10 marks.       [20 Marks]
+
+Q6. Explain ESX Server Architecture and the Design of Virtual Machines using suitable diagram.
+Q7. What are the different advanced cyberattacks that are specific to VM migration? How to address VM
+migration cyberattacks? Explain any 2 attacks mitigation strategy.
+Q8. Explain How Risk Analysis and Penetration Testing Are Different from Each Other.
+
+Section - C : Compulsory question                                                            [16 Marks]
+Q9.
+Xilinx is a provider of all programmable FPGAs, SoCs, MPSoCs and 3D ICs. Xilinx enables applications that
+are both software-defined and hardware - optimized - powering Industry advancement s in cloud computing
+SDN/NFV, Video/vision, industrial IoT, and 5G wireless.
+The challenge was to test a range of software applications to ensure they are bug free and ready for customers
+developing field programmable gate array (FPGA) solutions. And with each new Xilinx software release, the
+number of test cases and operating-system platforms grows. The software team is facing challenge that it was
+using on-premises data center resources for regression testing, which was creating bottlenecks due to spikes in
+demand. As a result software engineers sometimes had to wait for available resources before they could
+complete test cycles.
+With regression tests taking up significant resources, Xilinx developers weren't getting enough compute
+capacity to support their development and unit testing. This situation was starting to affect developer
+productivity. Cost constraint was also an issue.
+
+(a) Discuss, how AWS helped in resolving these issues?                                  (10)
+(b) Differentiate between Host based protection vs Hypervisor Integrated Protection.    (6)
+
+        ********

@@ -1,0 +1,1226 @@
+{
+  "P1": {
+    "subject": "Software Project Management",
+    "sections": [
+      {
+        "id": "Section A",
+        "name": "Section A",
+        "instruction": "Attempt any 4 out of 5 questions",
+        "bloomMode": "simple",
+        "difficulty": "easy",
+        "questions": [
+          {
+            "id": "q-1",
+            "number": 1,
+            "bloomLevel": "remember",
+            "totalMarks": 4,
+            "parts": [
+              {
+                "label": "",
+                "marks": 4
+              }
+            ]
+          },
+          {
+            "id": "q-2",
+            "number": 2,
+            "bloomLevel": "remember",
+            "totalMarks": 4,
+            "parts": [
+              {
+                "label": "",
+                "marks": 4
+              }
+            ]
+          },
+          {
+            "id": "q-3",
+            "number": 3,
+            "bloomLevel": "understand",
+            "totalMarks": 4,
+            "parts": [
+              {
+                "label": "",
+                "marks": 4
+              }
+            ]
+          },
+          {
+            "id": "q-4",
+            "number": 4,
+            "bloomLevel": "understand",
+            "totalMarks": 4,
+            "parts": [
+              {
+                "label": "",
+                "marks": 4
+              }
+            ]
+          },
+          {
+            "id": "q-5",
+            "number": 5,
+            "bloomLevel": "apply",
+            "totalMarks": 4,
+            "parts": [
+              {
+                "label": "",
+                "marks": 4
+              }
+            ]
+          }
+        ],
+        "pool": [],
+        "generate_pool": true
+      },
+      {
+        "id": "Section B",
+        "name": "Section B",
+        "instruction": "Attempt any 4 out of 6 questions",
+        "bloomMode": "simple",
+        "difficulty": "hard",
+        "questions": [
+          {
+            "id": "q-1",
+            "number": 1,
+            "bloomLevel": "understand",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          },
+          {
+            "id": "q-2",
+            "number": 2,
+            "bloomLevel": "apply",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          },
+          {
+            "id": "q-3",
+            "number": 3,
+            "bloomLevel": "analyze",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          },
+          {
+            "id": "q-4",
+            "number": 4,
+            "bloomLevel": "analyze",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          },
+          {
+            "id": "q-5",
+            "number": 5,
+            "bloomLevel": "evaluate",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          },
+          {
+            "id": "q-6",
+            "number": 6,
+            "bloomLevel": "create",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          }
+        ],
+        "pool": [],
+        "generate_pool": true
+      }
+    ]
+  },
+  "P2": {
+    "subject": "Artificial Intelligence",
+    "sections": [
+      {
+        "id": "Section A",
+        "name": "Section A",
+        "instruction": "Attempt any 4 out of 5 questions",
+        "bloomMode": "simple",
+        "difficulty": "easy",
+        "questions": [
+          {
+            "id": "q-1",
+            "number": 1,
+            "bloomLevel": "remember",
+            "totalMarks": 4,
+            "parts": [
+              {
+                "label": "",
+                "marks": 4
+              }
+            ]
+          },
+          {
+            "id": "q-2",
+            "number": 2,
+            "bloomLevel": "remember",
+            "totalMarks": 4,
+            "parts": [
+              {
+                "label": "",
+                "marks": 4
+              }
+            ]
+          },
+          {
+            "id": "q-3",
+            "number": 3,
+            "bloomLevel": "understand",
+            "totalMarks": 4,
+            "parts": [
+              {
+                "label": "",
+                "marks": 4
+              }
+            ]
+          },
+          {
+            "id": "q-4",
+            "number": 4,
+            "bloomLevel": "understand",
+            "totalMarks": 4,
+            "parts": [
+              {
+                "label": "",
+                "marks": 4
+              }
+            ]
+          },
+          {
+            "id": "q-5",
+            "number": 5,
+            "bloomLevel": "apply",
+            "totalMarks": 4,
+            "parts": [
+              {
+                "label": "",
+                "marks": 4
+              }
+            ]
+          }
+        ],
+        "pool": [],
+        "generate_pool": true
+      },
+      {
+        "id": "Section B",
+        "name": "Section B",
+        "instruction": "Attempt any 4 out of 6 questions",
+        "bloomMode": "simple",
+        "difficulty": "hard",
+        "questions": [
+          {
+            "id": "q-1",
+            "number": 1,
+            "bloomLevel": "understand",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          },
+          {
+            "id": "q-2",
+            "number": 2,
+            "bloomLevel": "apply",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          },
+          {
+            "id": "q-3",
+            "number": 3,
+            "bloomLevel": "analyze",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          },
+          {
+            "id": "q-4",
+            "number": 4,
+            "bloomLevel": "analyze",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          },
+          {
+            "id": "q-5",
+            "number": 5,
+            "bloomLevel": "evaluate",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          },
+          {
+            "id": "q-6",
+            "number": 6,
+            "bloomLevel": "create",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          }
+        ],
+        "pool": [],
+        "generate_pool": true
+      }
+    ]
+  },
+  "P3": {
+    "subject": "Cloud Security",
+    "sections": [
+      {
+        "id": "Section A",
+        "name": "Section A",
+        "instruction": "Attempt any 4 out of 5 questions",
+        "bloomMode": "simple",
+        "difficulty": "easy",
+        "questions": [
+          {
+            "id": "q-1",
+            "number": 1,
+            "bloomLevel": "remember",
+            "totalMarks": 4,
+            "parts": [
+              {
+                "label": "",
+                "marks": 4
+              }
+            ]
+          },
+          {
+            "id": "q-2",
+            "number": 2,
+            "bloomLevel": "remember",
+            "totalMarks": 4,
+            "parts": [
+              {
+                "label": "",
+                "marks": 4
+              }
+            ]
+          },
+          {
+            "id": "q-3",
+            "number": 3,
+            "bloomLevel": "understand",
+            "totalMarks": 4,
+            "parts": [
+              {
+                "label": "",
+                "marks": 4
+              }
+            ]
+          },
+          {
+            "id": "q-4",
+            "number": 4,
+            "bloomLevel": "understand",
+            "totalMarks": 4,
+            "parts": [
+              {
+                "label": "",
+                "marks": 4
+              }
+            ]
+          },
+          {
+            "id": "q-5",
+            "number": 5,
+            "bloomLevel": "apply",
+            "totalMarks": 4,
+            "parts": [
+              {
+                "label": "",
+                "marks": 4
+              }
+            ]
+          }
+        ],
+        "pool": [],
+        "generate_pool": true
+      },
+      {
+        "id": "Section B",
+        "name": "Section B",
+        "instruction": "Attempt any 4 out of 6 questions",
+        "bloomMode": "simple",
+        "difficulty": "hard",
+        "questions": [
+          {
+            "id": "q-1",
+            "number": 1,
+            "bloomLevel": "understand",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          },
+          {
+            "id": "q-2",
+            "number": 2,
+            "bloomLevel": "apply",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          },
+          {
+            "id": "q-3",
+            "number": 3,
+            "bloomLevel": "analyze",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          },
+          {
+            "id": "q-4",
+            "number": 4,
+            "bloomLevel": "analyze",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          },
+          {
+            "id": "q-5",
+            "number": 5,
+            "bloomLevel": "evaluate",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          },
+          {
+            "id": "q-6",
+            "number": 6,
+            "bloomLevel": "create",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          }
+        ],
+        "pool": [],
+        "generate_pool": true
+      }
+    ]
+  },
+  "P4": {
+    "subject": "Introduction to AI and Machine Learning",
+    "sections": [
+      {
+        "id": "Section A",
+        "name": "Section A",
+        "instruction": "Attempt any 4 out of 5 questions",
+        "bloomMode": "simple",
+        "difficulty": "easy",
+        "questions": [
+          {
+            "id": "q-1",
+            "number": 1,
+            "bloomLevel": "remember",
+            "totalMarks": 4,
+            "parts": [
+              {
+                "label": "",
+                "marks": 4
+              }
+            ]
+          },
+          {
+            "id": "q-2",
+            "number": 2,
+            "bloomLevel": "remember",
+            "totalMarks": 4,
+            "parts": [
+              {
+                "label": "",
+                "marks": 4
+              }
+            ]
+          },
+          {
+            "id": "q-3",
+            "number": 3,
+            "bloomLevel": "understand",
+            "totalMarks": 4,
+            "parts": [
+              {
+                "label": "",
+                "marks": 4
+              }
+            ]
+          },
+          {
+            "id": "q-4",
+            "number": 4,
+            "bloomLevel": "understand",
+            "totalMarks": 4,
+            "parts": [
+              {
+                "label": "",
+                "marks": 4
+              }
+            ]
+          },
+          {
+            "id": "q-5",
+            "number": 5,
+            "bloomLevel": "apply",
+            "totalMarks": 4,
+            "parts": [
+              {
+                "label": "",
+                "marks": 4
+              }
+            ]
+          }
+        ],
+        "pool": [],
+        "generate_pool": true
+      },
+      {
+        "id": "Section B",
+        "name": "Section B",
+        "instruction": "Attempt any 4 out of 6 questions",
+        "bloomMode": "simple",
+        "difficulty": "hard",
+        "questions": [
+          {
+            "id": "q-1",
+            "number": 1,
+            "bloomLevel": "understand",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          },
+          {
+            "id": "q-2",
+            "number": 2,
+            "bloomLevel": "apply",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          },
+          {
+            "id": "q-3",
+            "number": 3,
+            "bloomLevel": "analyze",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          },
+          {
+            "id": "q-4",
+            "number": 4,
+            "bloomLevel": "analyze",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          },
+          {
+            "id": "q-5",
+            "number": 5,
+            "bloomLevel": "evaluate",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          },
+          {
+            "id": "q-6",
+            "number": 6,
+            "bloomLevel": "create",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          }
+        ],
+        "pool": [],
+        "generate_pool": true
+      }
+    ]
+  },
+  "P5": {
+    "subject": "Data Mining and Business Intelligence",
+    "sections": [
+      {
+        "id": "Section A",
+        "name": "Section A",
+        "instruction": "Attempt any 4 out of 5 questions",
+        "bloomMode": "simple",
+        "difficulty": "easy",
+        "questions": [
+          {
+            "id": "q-1",
+            "number": 1,
+            "bloomLevel": "remember",
+            "totalMarks": 4,
+            "parts": [
+              {
+                "label": "",
+                "marks": 4
+              }
+            ]
+          },
+          {
+            "id": "q-2",
+            "number": 2,
+            "bloomLevel": "remember",
+            "totalMarks": 4,
+            "parts": [
+              {
+                "label": "",
+                "marks": 4
+              }
+            ]
+          },
+          {
+            "id": "q-3",
+            "number": 3,
+            "bloomLevel": "understand",
+            "totalMarks": 4,
+            "parts": [
+              {
+                "label": "",
+                "marks": 4
+              }
+            ]
+          },
+          {
+            "id": "q-4",
+            "number": 4,
+            "bloomLevel": "understand",
+            "totalMarks": 4,
+            "parts": [
+              {
+                "label": "",
+                "marks": 4
+              }
+            ]
+          },
+          {
+            "id": "q-5",
+            "number": 5,
+            "bloomLevel": "apply",
+            "totalMarks": 4,
+            "parts": [
+              {
+                "label": "",
+                "marks": 4
+              }
+            ]
+          }
+        ],
+        "pool": [],
+        "generate_pool": true
+      },
+      {
+        "id": "Section B",
+        "name": "Section B",
+        "instruction": "Attempt any 4 out of 6 questions",
+        "bloomMode": "simple",
+        "difficulty": "hard",
+        "questions": [
+          {
+            "id": "q-1",
+            "number": 1,
+            "bloomLevel": "understand",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          },
+          {
+            "id": "q-2",
+            "number": 2,
+            "bloomLevel": "apply",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          },
+          {
+            "id": "q-3",
+            "number": 3,
+            "bloomLevel": "analyze",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          },
+          {
+            "id": "q-4",
+            "number": 4,
+            "bloomLevel": "analyze",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          },
+          {
+            "id": "q-5",
+            "number": 5,
+            "bloomLevel": "evaluate",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          },
+          {
+            "id": "q-6",
+            "number": 6,
+            "bloomLevel": "create",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          }
+        ],
+        "pool": [],
+        "generate_pool": true
+      }
+    ]
+  },
+  "P6": {
+    "subject": "Software Project Management",
+    "sections": [
+      {
+        "id": "Section A",
+        "name": "Section A",
+        "instruction": "Attempt all questions",
+        "bloomMode": "simple",
+        "difficulty": "medium",
+        "questions": [
+          {
+            "id": "q-1",
+            "number": 1,
+            "bloomLevel": "remember",
+            "totalMarks": 6,
+            "parts": [
+              {
+                "label": "a",
+                "marks": 3
+              },
+              {
+                "label": "b",
+                "marks": 3
+              }
+            ]
+          },
+          {
+            "id": "q-2",
+            "number": 2,
+            "bloomLevel": "understand",
+            "totalMarks": 6,
+            "parts": [
+              {
+                "label": "a",
+                "marks": 3
+              },
+              {
+                "label": "b",
+                "marks": 3
+              }
+            ]
+          },
+          {
+            "id": "q-3",
+            "number": 3,
+            "bloomLevel": "apply",
+            "totalMarks": 6,
+            "parts": [
+              {
+                "label": "a",
+                "marks": 3
+              },
+              {
+                "label": "b",
+                "marks": 3
+              }
+            ]
+          },
+          {
+            "id": "q-4",
+            "number": 4,
+            "bloomLevel": "apply",
+            "totalMarks": 6,
+            "parts": [
+              {
+                "label": "a",
+                "marks": 3
+              },
+              {
+                "label": "b",
+                "marks": 3
+              }
+            ]
+          },
+          {
+            "id": "q-5",
+            "number": 5,
+            "bloomLevel": "analyze",
+            "totalMarks": 6,
+            "parts": [
+              {
+                "label": "a",
+                "marks": 3
+              },
+              {
+                "label": "b",
+                "marks": 3
+              }
+            ]
+          }
+        ],
+        "pool": [],
+        "generate_pool": true
+      },
+      {
+        "id": "Section B",
+        "name": "Section B",
+        "instruction": "Attempt any 2 out of 3 questions",
+        "bloomMode": "simple",
+        "difficulty": "hard",
+        "questions": [
+          {
+            "id": "q-1",
+            "number": 1,
+            "bloomLevel": "understand",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          },
+          {
+            "id": "q-2",
+            "number": 2,
+            "bloomLevel": "apply",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          },
+          {
+            "id": "q-3",
+            "number": 3,
+            "bloomLevel": "analyze",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          }
+        ],
+        "pool": [],
+        "generate_pool": true
+      }
+    ]
+  },
+  "P7": {
+    "subject": "Cloud Security",
+    "sections": [
+      {
+        "id": "Section A",
+        "name": "Section A",
+        "instruction": "Attempt all questions",
+        "bloomMode": "simple",
+        "difficulty": "medium",
+        "questions": [
+          {
+            "id": "q-1",
+            "number": 1,
+            "bloomLevel": "remember",
+            "totalMarks": 6,
+            "parts": [
+              {
+                "label": "a",
+                "marks": 3
+              },
+              {
+                "label": "b",
+                "marks": 3
+              }
+            ]
+          },
+          {
+            "id": "q-2",
+            "number": 2,
+            "bloomLevel": "understand",
+            "totalMarks": 6,
+            "parts": [
+              {
+                "label": "a",
+                "marks": 3
+              },
+              {
+                "label": "b",
+                "marks": 3
+              }
+            ]
+          },
+          {
+            "id": "q-3",
+            "number": 3,
+            "bloomLevel": "apply",
+            "totalMarks": 6,
+            "parts": [
+              {
+                "label": "a",
+                "marks": 3
+              },
+              {
+                "label": "b",
+                "marks": 3
+              }
+            ]
+          },
+          {
+            "id": "q-4",
+            "number": 4,
+            "bloomLevel": "apply",
+            "totalMarks": 6,
+            "parts": [
+              {
+                "label": "a",
+                "marks": 3
+              },
+              {
+                "label": "b",
+                "marks": 3
+              }
+            ]
+          },
+          {
+            "id": "q-5",
+            "number": 5,
+            "bloomLevel": "analyze",
+            "totalMarks": 6,
+            "parts": [
+              {
+                "label": "a",
+                "marks": 3
+              },
+              {
+                "label": "b",
+                "marks": 3
+              }
+            ]
+          }
+        ],
+        "pool": [],
+        "generate_pool": true
+      },
+      {
+        "id": "Section B",
+        "name": "Section B",
+        "instruction": "Attempt any 2 out of 3 questions",
+        "bloomMode": "simple",
+        "difficulty": "hard",
+        "questions": [
+          {
+            "id": "q-1",
+            "number": 1,
+            "bloomLevel": "understand",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          },
+          {
+            "id": "q-2",
+            "number": 2,
+            "bloomLevel": "apply",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          },
+          {
+            "id": "q-3",
+            "number": 3,
+            "bloomLevel": "analyze",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          }
+        ],
+        "pool": [],
+        "generate_pool": true
+      }
+    ]
+  },
+  "P8": {
+    "subject": "Data Mining and Business Intelligence",
+    "sections": [
+      {
+        "id": "Section A",
+        "name": "Section A",
+        "instruction": "Attempt all questions",
+        "bloomMode": "simple",
+        "difficulty": "medium",
+        "questions": [
+          {
+            "id": "q-1",
+            "number": 1,
+            "bloomLevel": "remember",
+            "totalMarks": 6,
+            "parts": [
+              {
+                "label": "a",
+                "marks": 3
+              },
+              {
+                "label": "b",
+                "marks": 3
+              }
+            ]
+          },
+          {
+            "id": "q-2",
+            "number": 2,
+            "bloomLevel": "understand",
+            "totalMarks": 6,
+            "parts": [
+              {
+                "label": "a",
+                "marks": 3
+              },
+              {
+                "label": "b",
+                "marks": 3
+              }
+            ]
+          },
+          {
+            "id": "q-3",
+            "number": 3,
+            "bloomLevel": "apply",
+            "totalMarks": 6,
+            "parts": [
+              {
+                "label": "a",
+                "marks": 3
+              },
+              {
+                "label": "b",
+                "marks": 3
+              }
+            ]
+          },
+          {
+            "id": "q-4",
+            "number": 4,
+            "bloomLevel": "apply",
+            "totalMarks": 6,
+            "parts": [
+              {
+                "label": "a",
+                "marks": 3
+              },
+              {
+                "label": "b",
+                "marks": 3
+              }
+            ]
+          },
+          {
+            "id": "q-5",
+            "number": 5,
+            "bloomLevel": "analyze",
+            "totalMarks": 6,
+            "parts": [
+              {
+                "label": "a",
+                "marks": 3
+              },
+              {
+                "label": "b",
+                "marks": 3
+              }
+            ]
+          }
+        ],
+        "pool": [],
+        "generate_pool": true
+      },
+      {
+        "id": "Section B",
+        "name": "Section B",
+        "instruction": "Attempt any 2 out of 3 questions",
+        "bloomMode": "simple",
+        "difficulty": "hard",
+        "questions": [
+          {
+            "id": "q-1",
+            "number": 1,
+            "bloomLevel": "understand",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          },
+          {
+            "id": "q-2",
+            "number": 2,
+            "bloomLevel": "apply",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          },
+          {
+            "id": "q-3",
+            "number": 3,
+            "bloomLevel": "analyze",
+            "totalMarks": 10,
+            "parts": [
+              {
+                "label": "",
+                "marks": 10
+              }
+            ]
+          }
+        ],
+        "pool": [],
+        "generate_pool": true
+      }
+    ]
+  }
+}
